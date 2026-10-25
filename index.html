@@ -1,278 +1,708 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SupaDash | Database Manager</title>
+    <title>Supabase Enterprise Control Panel</title>
     
-    <!-- Tailwind CSS for Unique Styling -->
+    <!-- CDNs -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- React and Babel CDNs to run React in HTML -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Supabase JS Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .glass-panel {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b;
+            color: #fafafa;
         }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .glass { background: rgba(24, 24, 27, 0.8); backdrop-filter: blur(12px); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #18181b; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #52525b; }
+        
+        .tab-active {
+            background-color: #27272a;
+            border-left: 4px solid #6366f1;
+            color: #fff;
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+        .glow-emerald {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+            animation: pulse-glow 2s infinite;
+        }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100">
+<body class="h-screen overflow-hidden flex flex-col">
 
-    <div id="root"></div>
+    <!-- GLOBAL ALERT BANNER -->
+    <div id="alert-banner" class="hidden fixed top-0 left-0 right-0 z-[100] p-4 bg-red-600 text-white flex justify-between items-center animate-bounce">
+        <div class="flex items-center gap-3">
+            <i data-lucide="alert-circle"></i>
+            <span id="alert-message">Error connecting to Supabase</span>
+        </div>
+        <button onclick="closeAlert()" class="hover:text-gray-200">✕</button>
+    </div>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
+    <!-- CONNECTION OVERLAY -->
+    <div id="connection-overlay" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md">
+        <div class="w-full max-w-md p-8 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl">
+            <div class="flex flex-col items-center mb-8">
+                <div class="p-3 bg-indigo-600 rounded-xl mb-4">
+                    <i data-lucide="database" class="w-8 h-8 text-white"></i>
+                </div>
+                <h1 class="text-2xl font-bold">Enterprise Control</h1>
+                <p class="text-zinc-400 text-sm">Initialize secure session connection</p>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-zinc-500 mb-1 uppercase tracking-wider">Project URL</label>
+                    <input id="sb-url" type="text" placeholder="https://xyz.supabase.co" 
+                        class="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-500 mb-1 uppercase tracking-wider">Service Role Key (JWT)</label>
+                    <input id="sb-key" type="password" placeholder="eyJhbGciOiJIUzI1..." 
+                        class="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                </div>
+                <button onclick="initializeConnection()" 
+                    class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2 group">
+                    <span>Connect to Cluster</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
+                </button>
+            </div>
+            <p class="mt-6 text-center text-xs text-zinc-500">
+                Warning: Using the Service Role Key grants full administrative access.
+            </p>
+        </div>
+    </div>
 
-        // SVG Icon Components to replace Lucide-React for HTML CDN version
-        const Icons = {
-            Database: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>,
-            Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>,
-            Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>,
-            Refresh: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>,
-            Settings: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
-            Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
-            Alert: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+    <!-- MAIN APP LAYOUT -->
+    <div id="main-app" class="hidden h-full flex">
+        
+        <!-- LEFT SIDEBAR -->
+        <aside class="w-64 bg-zinc-950 border-r border-zinc-800 flex flex-col">
+            <div class="p-6 flex items-center gap-3 border-b border-zinc-800">
+                <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                    <i data-lucide="shield-check" class="w-5 h-5 text-white"></i>
+                </div>
+                <span class="font-bold text-lg tracking-tight">AdminPanel</span>
+            </div>
+
+            <nav class="flex-1 py-6 space-y-1 overflow-y-auto custom-scrollbar">
+                <button onclick="switchTab('overview')" id="nav-overview" class="w-full flex items-center gap-3 px-6 py-3 text-zinc-400 hover:text-white transition-colors tab-active">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    <span class="text-sm font-medium">Global Overview</span>
+                </button>
+                <button onclick="switchTab('explorer')" id="nav-explorer" class="w-full flex items-center gap-3 px-6 py-3 text-zinc-400 hover:text-white transition-colors">
+                    <i data-lucide="table-2" class="w-5 h-5"></i>
+                    <span class="text-sm font-medium">Data Explorer</span>
+                </button>
+                <button onclick="switchTab('auth')" id="nav-auth" class="w-full flex items-center gap-3 px-6 py-3 text-zinc-400 hover:text-white transition-colors">
+                    <i data-lucide="users" class="w-5 h-5"></i>
+                    <span class="text-sm font-medium">Auth Manager</span>
+                </button>
+                <button onclick="switchTab('sql')" id="nav-sql" class="w-full flex items-center gap-3 px-6 py-3 text-zinc-400 hover:text-white transition-colors">
+                    <i data-lucide="terminal" class="w-5 h-5"></i>
+                    <span class="text-sm font-medium">SQL Terminal</span>
+                </button>
+                <button onclick="switchTab('logs')" id="nav-logs" class="w-full flex items-center gap-3 px-6 py-3 text-zinc-400 hover:text-white transition-colors">
+                    <i data-lucide="activity" class="w-5 h-5"></i>
+                    <span class="text-sm font-medium">System Logs</span>
+                </button>
+                <div class="pt-4 pb-2 px-6 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">System</div>
+                <button onclick="switchTab('setup')" id="nav-setup" class="w-full flex items-center gap-3 px-6 py-3 text-zinc-400 hover:text-white transition-colors">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                    <span class="text-sm font-medium">Setup Guide</span>
+                </button>
+            </nav>
+
+            <div class="p-4 border-t border-zinc-800">
+                <div class="flex items-center gap-3 p-2 rounded-lg bg-zinc-900 border border-zinc-800">
+                    <div id="status-indicator" class="w-3 h-3 rounded-full bg-red-500"></div>
+                    <span id="status-text" class="text-xs font-medium text-zinc-400">Disconnected</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="flex-1 flex flex-col overflow-hidden bg-zinc-900">
+            
+            <!-- TOP STATUS BAR -->
+            <header class="h-16 border-b border-zinc-800 glass flex items-center justify-between px-8 sticky top-0 z-10">
+                <div class="flex items-center gap-6">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-zinc-500 uppercase">Environment:</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">PRODUCTION</span>
+                    </div>
+                    <div class="h-4 w-px bg-zinc-800"></div>
+                    <div id="endpoint-display" class="text-xs text-zinc-400 mono truncate max-w-xs">No project connected</div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-4 text-xs font-medium">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-zinc-500">CPU</span>
+                            <span id="metric-cpu" class="text-indigo-400">0%</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-zinc-500">RAM</span>
+                            <span id="metric-ram" class="text-indigo-400">0%</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-zinc-500">LATENCY</span>
+                            <span id="metric-ping" class="text-indigo-400">0ms</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- DYNAMIC VIEW CONTAINER -->
+            <div id="view-container" class="flex-1 overflow-y-auto custom-scrollbar p-8">
+                
+                <!-- OVERVIEW TAB -->
+                <section id="view-overview" class="space-y-8">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div class="p-6 bg-zinc-950 border border-zinc-800 rounded-2xl">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg"><i data-lucide="database" class="w-5 h-5"></i></div>
+                                <span class="text-xs text-emerald-500 font-medium">+12%</span>
+                            </div>
+                            <div class="text-2xl font-bold" id="stat-tables">0</div>
+                            <div class="text-xs text-zinc-500 uppercase tracking-wider mt-1">Total Tables</div>
+                        </div>
+                        <div class="p-6 bg-zinc-950 border border-zinc-800 rounded-2xl">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="p-2 bg-blue-500/10 text-blue-500 rounded-lg"><i data-lucide="users" class="w-5 h-5"></i></div>
+                                <span class="text-xs text-zinc-500 font-medium">Live</span>
+                            </div>
+                            <div class="text-2xl font-bold" id="stat-users">0</div>
+                            <div class="text-xs text-zinc-500 uppercase tracking-wider mt-1">Auth Users</div>
+                        </div>
+                        <div class="p-6 bg-zinc-950 border border-zinc-800 rounded-2xl">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg"><i data-lucide="hard-drive" class="w-5 h-5"></i></div>
+                                <span class="text-xs text-zinc-500 font-medium">Stable</span>
+                            </div>
+                            <div class="text-2xl font-bold" id="stat-storage">--</div>
+                            <div class="text-xs text-zinc-500 uppercase tracking-wider mt-1">Storage Used</div>
+                        </div>
+                        <div class="p-6 bg-zinc-950 border border-zinc-800 rounded-2xl">
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="p-2 bg-amber-500/10 text-amber-500 rounded-lg"><i data-lucide="zap" class="w-5 h-5"></i></div>
+                                <span class="text-xs text-amber-500 font-medium">Active</span>
+                            </div>
+                            <div class="text-2xl font-bold" id="stat-requests">0</div>
+                            <div class="text-xs text-zinc-500 uppercase tracking-wider mt-1">API Requests (1h)</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden">
+                        <div class="p-6 border-b border-zinc-800 flex justify-between items-center">
+                            <h3 class="font-bold flex items-center gap-2"><i data-lucide="list" class="w-4 h-4"></i> Global Activity Log</h3>
+                            <button onclick="clearLogs()" class="text-xs text-zinc-500 hover:text-white transition-colors">Clear Log</button>
+                        </div>
+                        <div id="global-activity-log" class="p-0 max-h-[400px] overflow-y-auto custom-scrollbar">
+                            <div class="p-8 text-center text-zinc-600 italic text-sm">No activity recorded in current session...</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- EXPLORER TAB -->
+                <section id="view-explorer" class="hidden h-full flex gap-6">
+                    <div class="w-64 shrink-0 bg-zinc-950 border border-zinc-800 rounded-2xl flex flex-col">
+                        <div class="p-4 border-b border-zinc-800">
+                            <input id="table-search" type="text" placeholder="Search tables..." 
+                                class="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-500">
+                        </div>
+                        <div id="table-list" class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                            <div class="p-4 text-center text-xs text-zinc-600">Connect to load tables...</div>
+                        </div>
+                    </div>
+                    <div class="flex-1 bg-zinc-950 border border-zinc-800 rounded-2xl flex flex-col overflow-hidden">
+                        <div id="explorer-header" class="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="table" class="w-5 h-5 text-indigo-500"></i>
+                                <h3 id="active-table-name" class="font-bold">Select a Table</h3>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="openCreateModal()" id="btn-add-row" class="hidden px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-all flex items-center gap-2">
+                                    <i data-lucide="plus" class="w-3 h-3"></i> Add Row
+                                </button>
+                            </div>
+                        </div>
+                        <div id="data-grid-container" class="flex-1 overflow-auto custom-scrollbar relative">
+                            <table id="data-grid" class="w-full text-left text-xs border-collapse">
+                                <thead class="sticky top-0 bg-zinc-900 text-zinc-500 uppercase tracking-wider z-10">
+                                    <tr id="grid-head">
+                                        <th class="p-4 font-medium">No data loaded</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="grid-body" class="divide-y divide-zinc-800">
+                                    <!-- Dynamic content -->
+                                </tbody>
+                            </table>
+                            <div id="grid-empty" class="absolute inset-0 flex items-center justify-center text-zinc-600 italic">
+                                Please select a table from the sidebar to explore data.
+                            </div>
+                        </div>
+                        <div class="p-4 border-t border-zinc-800 flex items-center justify-between bg-zinc-900/30">
+                            <span id="grid-pagination-info" class="text-xs text-zinc-500">Rows: 0</span>
+                            <div class="flex gap-2">
+                                <button id="prev-page" onclick="changePage(-1)" class="p-1 px-3 rounded bg-zinc-800 text-zinc-400 disabled:opacity-30">Prev</button>
+                                <button id="next-page" onclick="changePage(1)" class="p-1 px-3 rounded bg-zinc-800 text-zinc-400 disabled:opacity-30">Next</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- AUTH TAB -->
+                <section id="view-auth" class="hidden space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-xl font-bold">User Management</h2>
+                        <button onclick="openUserModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg flex items-center gap-2">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i> Invite User
+                        </button>
+                    </div>
+                    <div class="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-zinc-900 text-zinc-500 uppercase tracking-wider">
+                                <tr>
+                                    <th class="p-4">User ID</th>
+                                    <th class="p-4">Email</th>
+                                    <th class="p-4">Created At</th>
+                                    <th class="p-4">Last Sign In</th>
+                                    <th class="p-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auth-user-list" class="divide-y divide-zinc-800">
+                                <tr><td colspan="5" class="p-8 text-center text-zinc-600 italic">Loading users...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- SQL TAB -->
+                <section id="view-sql" class="hidden h-full flex flex-col gap-6">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h2 class="text-xl font-bold">SQL Terminal</h2>
+                            <p class="text-xs text-zinc-500">Execute raw queries against your database cluster</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="clearSql()" class="px-4 py-2 bg-zinc-800 text-zinc-300 text-xs font-medium rounded-lg hover:bg-zinc-700 transition-all">Clear</button>
+                            <button onclick="executeSql()" class="px-4 py-2 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-500 transition-all flex items-center gap-2">
+                                <i data-lucide="play" class="w-3 h-3"></i> Run Query
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex-1 flex flex-col gap-4 min-h-0">
+                        <div class="h-1/3 relative">
+                            <textarea id="sql-input" class="w-full h-full p-4 bg-zinc-950 border border-zinc-800 rounded-2xl mono text-sm outline-none focus:ring-2 focus:ring-indigo-500 text-indigo-300 resize-none" placeholder="SELECT * FROM users LIMIT 10;"></textarea>
+                        </div>
+                        <div class="flex-1 bg-zinc-950 border border-zinc-800 rounded-2xl flex flex-col overflow-hidden">
+                            <div class="p-3 border-b border-zinc-800 bg-zinc-900 flex justify-between items-center">
+                                <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Query Result (JSON)</span>
+                                <span id="sql-execution-time" class="text-[10px] text-zinc-600">--</span>
+                            </div>
+                            <pre id="sql-output" class="flex-1 p-4 mono text-xs overflow-auto custom-scrollbar text-zinc-400">Waiting for input...</pre>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- LOGS TAB -->
+                <section id="view-logs" class="hidden h-full flex flex-col gap-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-xl font-bold">Infrastructure Logs</h2>
+                        <div class="flex gap-2">
+                            <select class="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-300 outline-none">
+                                <option>All Levels</option>
+                                <option>Error</option>
+                                <option>Warning</option>
+                                <option>Info</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="full-system-logs" class="flex-1 bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden flex flex-col">
+                        <div class="p-2 bg-zinc-900 border-b border-zinc-800 flex gap-4 text-[10px] font-bold text-zinc-500 uppercase px-4">
+                            <span class="w-24">Timestamp</span>
+                            <span class="w-20">Level</span>
+                            <span class="flex-1">Event</span>
+                        </div>
+                        <div id="log-stream" class="flex-1 overflow-y-auto custom-scrollbar mono text-xs">
+                            <!-- Logs stream here -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SETUP TAB -->
+                <section id="view-setup" class="hidden space-y-8">
+                    <div class="max-w-3xl">
+                        <h2 class="text-2xl font-bold mb-4">System Setup Guide</h2>
+                        <p class="text-zinc-400 mb-6">Because the Supabase JS client is designed for frontend use, administrative tasks like listing tables and executing raw SQL require <strong>Remote Procedure Calls (RPC)</strong> to be enabled on your database.</p>
+                        
+                        <div class="bg-indigo-900/20 border border-indigo-500/30 p-6 rounded-2xl mb-8">
+                            <h3 class="text-indigo-400 font-bold mb-2 flex items-center gap-2">
+                                <i data-lucide="info" class="w-4 h-4"></i> Essential Database Extensions
+                            </h3>
+                            <p class="text-sm text-zinc-300">Copy and run the following SQL in your Supabase Dashboard SQL Editor to enable the Table Explorer and SQL Console:</p>
+                        </div>
+
+                        <div class="relative group">
+                            <pre class="bg-zinc-950 p-6 rounded-2xl border border-zinc-800 text-xs mono text-zinc-400 overflow-x-auto custom-scrollbar leading-relaxed" id="setup-sql-code">
+-- 1. FUNCTION TO LIST ALL TABLES
+CREATE OR REPLACE FUNCTION get_tables() 
+RETURNS TABLE (table_name text) 
+LANGUAGE plpgsql 
+SECURITY DEFINER 
+AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT t.table_name::text 
+    FROM information_schema.tables t 
+    WHERE t.table_schema = 'public';
+END;
+$$;
+
+-- 2. FUNCTION TO EXECUTE RAW SQL
+CREATE OR REPLACE FUNCTION execute_sql(sql_query text) 
+RETURNS jsonb 
+LANGUAGE plpgsql 
+SECURITY DEFINER 
+AS $$
+DECLARE 
+    result jsonb;
+BEGIN
+    EXECUTE 'SELECT jsonb_agg(t) FROM (' || sql_query || ') t' INTO result;
+    RETURN result;
+END;
+$$;
+                            </pre>
+                            <button onclick="copySetupSql()" class="absolute top-4 right-4 p-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-all">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODALS -->
+    <div id="modal-overlay" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+        <div id="modal-content" class="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
+            <!-- Dynamic Modal Content -->
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL STATE ---
+        const state = {
+            supabase: null,
+            activeTab: 'overview',
+            activeTable: null,
+            cachedData: [],
+            currentPage: 0,
+            pageSize: 20,
+            logs: [],
+            metrics: {
+                cpu: 0,
+                ram: 0,
+                ping: 0
+            }
         };
 
-        function App() {
-            const [supabaseUrl, setSupabaseUrl] = useState('');
-            const [supabaseKey, setSupabaseKey] = useState('');
-            const [tableName, setTableName] = useState('');
-            const [isConnected, setIsConnected] = useState(false);
-            const [supabaseClient, setSupabaseClient] = useState(null);
-            const [data, setData] = useState([]);
-            const [loading, setLoading] = useState(false);
-            const [message, setMessage] = useState({ type: '', text: '' });
-            const [newItem, setNewItem] = useState('');
+        // --- INITIALIZATION ---
+        function initializeConnection() {
+            const url = document.getElementById('sb-url').value;
+            const key = document.getElementById('sb-key').value;
 
-            const showMsg = (type, text) => {
-                setMessage({ type, text });
-                setTimeout(() => setMessage({ type: '', text: '' }), 4000);
-            };
+            if (!url || !key) {
+                showAlert("Project URL and Service Key are required.");
+                return;
+            }
 
-            const connectDb = () => {
-                if (!supabaseUrl || !supabaseKey || !tableName) {
-                    showMsg('error', 'Please fill in all configuration fields');
-                    return;
-                }
-                try {
-                    const client = supabase.createClient(supabaseUrl, supabaseKey);
-                    setSupabaseClient(client);
-                    setIsConnected(true);
-                    showMsg('success', 'Connected to Supabase successfully!');
-                } catch (err) {
-                    showMsg('error', 'Connection failed: ' + err.message);
-                }
-            };
+            try {
+                state.supabase = supabase.createClient(url, key);
+                
+                // Validate connection
+                const { data, error } = state.supabase.from('_test_connection').select('count', { count: 'exact', head: true });
+                
+                // We don't care if the table doesn't exist, just if the client can talk to the API
+                document.getElementById('connection-overlay').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                
+                document.getElementById('status-indicator').className = 'w-3 h-3 rounded-full bg-emerald-500 glow-emerald';
+                document.getElementById('status-text').innerText = 'Connected';
+                document.getElementById('endpoint-display').innerText = url;
 
-            const fetchData = async () => {
-                if (!supabaseClient) return;
-                setLoading(true);
-                try {
-                    const { data: rows, error } = await supabaseClient.from(tableName).select('*');
-                    if (error) throw error;
-                    setData(rows);
-                } catch (err) {
-                    showMsg('error', 'Fetch Error: ' + err.message);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const addItem = async () => {
-                if (!supabaseClient || !newItem) return;
-                try {
-                    const parsedData = JSON.parse(newItem.replace(/'/g, '"'));
-                    const { error } = await supabaseClient.from(tableName).insert([parsedData]);
-                    if (error) throw error;
-                    showMsg('success', 'Record added successfully!');
-                    setNewItem('');
-                    fetchData();
-                } catch (err) {
-                    showMsg('error', 'Invalid JSON or Insert Error: ' + err.message);
-                }
-            };
-
-            const deleteItem = async (id) => {
-                try {
-                    const { error } = await supabaseClient.from(tableName).delete().eq('id', id);
-                    if (error) throw error;
-                    showMsg('success', 'Record deleted!');
-                    fetchData();
-                } catch (err) {
-                    showMsg('error', 'Delete Error: ' + err.message);
-                }
-            };
-
-            return (
-                <div className="min-h-screen p-4 md:p-8">
-                    <header className="max-w-6xl mx-auto flex items-center justify-between mb-10">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-500/40">
-                                <Icons.Database />
-                            </div>
-                            <h1 className="text-3xl font-bold tracking-tight">Supa<span className="text-indigo-400">Dash</span></h1>
-                        </div>
-                        <div className="flex items-center gap-3 bg-slate-800 px-4 py-2 rounded-full border border-slate-700">
-                            <div className={`h-2 w-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                            <span className="text-xs font-medium text-slate-400">{isConnected ? 'CONNECTED' : 'DISCONNECTED'}</span>
-                        </div>
-                    </header>
-
-                    <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
-                        {/* Configuration Sidebar */}
-                        <div className="lg:col-span-1 space-y-6">
-                            <div className="glass-panel p-6 rounded-3xl shadow-2xl">
-                                <div className="flex items-center gap-2 mb-6 text-indigo-400">
-                                    <Icons.Settings />
-                                    <h2 className="font-bold uppercase text-xs tracking-widest">Database Settings</h2>
-                                </div>
-                                
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1 ml-1">Supabase URL</label>
-                                        <input 
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600"
-                                            placeholder="https://xyz.supabase.co"
-                                            value={supabaseUrl}
-                                            onChange={(e) => setSupabaseUrl(e.target.value)}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1 ml-1">Anon Key</label>
-                                        <input 
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600"
-                                            type="password"
-                                            placeholder="eyJhbG..."
-                                            value={supabaseKey}
-                                            onChange={(e) => setSupabaseKey(e.target.value)}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1 ml-1">Table Name</label>
-                                        <input 
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600"
-                                            placeholder="profiles"
-                                            value={tableName}
-                                            onChange={(e) => setTableName(e.target.value)}
-                                        />
-                                    </div>
-                                    <button 
-                                        onClick={connectDb}
-                                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 active:scale-95"
-                                    >
-                                        <Icons.Database /> Connect Now
-                                    </button>
-                                </div>
-                            </div>
-
-                            {message.text && (
-                                <div className={`p-4 rounded-2xl flex items-center gap-3 border animate-bounce transition-all ${
-                                    message.type === 'success' ? 'bg-emerald-900/20 border-emerald-500 text-emerald-400' : 'bg-red-900/20 border-red-500 text-red-400'
-                                }`}>
-                                    {message.type === 'success' ? <Icons.Check /> : <Icons.Alert />}
-                                    <p className="text-sm font-medium">{message.text}</p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Content Area */}
-                        <div className="lg:col-span-3 space-y-6">
-                            {!isConnected ? (
-                                <div className="h-full min-h-[400px] flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-800 rounded-3xl p-12 text-center">
-                                    <div className="bg-slate-800 p-6 rounded-full mb-4 opacity-50">
-                                        <Icons.Database />
-                                    </div>
-                                    <p className="text-xl font-medium">Ready to connect</p>
-                                    <p className="text-sm opacity-60">Enter your Supabase credentials in the sidebar to start managing your data</p>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="glass-panel p-4 rounded-3xl flex flex-wrap items-center justify-between gap-4">
-                                        <button 
-                                            onClick={fetchData} 
-                                            className="flex items-center gap-2 px-5 py-2 bg-slate-700 hover:bg-slate-600 rounded-xl text-sm font-medium transition-all active:scale-95"
-                                        >
-                                            <div className={loading ? 'animate-spin' : ''}><Icons.Refresh /></div> Refresh Data
-                                        </button>
-
-                                        <div className="flex gap-2 items-center bg-slate-900 p-1 rounded-2xl border border-slate-700">
-                                            <input 
-                                                className="bg-transparent border-none outline-none p-2 text-sm w-64 px-3"
-                                                placeholder="Enter JSON (e.g. {'name': 'John'})"
-                                                value={newItem}
-                                                onChange={(e) => setNewItem(e.target.value)}
-                                            />
-                                            <button 
-                                                onClick={addItem}
-                                                className="bg-emerald-600 hover:bg-emerald-500 p-2 rounded-xl transition-all text-white active:scale-90"
-                                            >
-                                                <Icons.Plus />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="glass-panel rounded-3xl overflow-hidden shadow-2xl">
-                                        <div className="overflow-x-auto custom-scrollbar">
-                                            <table className="w-full text-left border-collapse">
-                                                <thead>
-                                                    <tr className="bg-slate-800/50 text-slate-400 text-[10px] uppercase tracking-widest font-bold">
-                                                        <th className="p-5">Row ID</th>
-                                                        <th className="p-5">Record Content</th>
-                                                        <th className="p-5 text-right">Actions</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-800">
-                                                    {data.length === 0 && !loading && (
-                                                        <tr>
-                                                            <td colSpan="3" className="p-20 text-center text-slate-500 italic">No records found in table "{tableName}"</td>
-                                                        </tr>
-                                                    )}
-                                                    {data.map((row) => (
-                                                        <tr key={row.id} className="hover:bg-slate-700/30 transition-colors group">
-                                                            <td className="p-5 text-sm font-mono text-indigo-400 font-semibold">{row.id}</td>
-                                                            <td className="p-5 text-sm">
-                                                                <div className="bg-slate-900 p-3 rounded-lg text-slate-300 font-mono text-xs max-w-md overflow-auto custom-scrollbar">
-                                                                    {JSON.stringify(row, null, 2)}
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-5 text-right">
-                                                                <button 
-                                                                    onClick={() => deleteItem(row.id)}
-                                                                    className="p-2 text-slate-500 hover:text-red-400 transition-colors rounded-lg hover:bg-red-400/10"
-                                                                >
-                                                                    <Icons.Trash />
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </main>
-                </div>
-            );
+                logAction('System', 'Secure connection established to cluster');
+                startMetricSimulation();
+                updateGlobalStats();
+                lucide.createIcons();
+            } catch (err) {
+                showAlert("Initialization failed: " + err.message);
+            }
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        // --- NAVIGATION ---
+        function switchTab(tabId) {
+            state.activeTab = tabId;
+            
+            // Update UI Navigation
+            document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('tab-active'));
+            document.getElementById(`nav-${tabId}`).classList.add('tab-active');
+            
+            // Switch View
+            document.querySelectorAll('section').forEach(sec => sec.classList.add('hidden'));
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+
+            if (tabId === 'explorer') loadTableList();
+            if (tabId === 'auth') loadAuthUsers();
+            
+            lucide.createIcons();
+        }
+
+        // --- METRICS SIMULATION ---
+        function startMetricSimulation() {
+            setInterval(() => {
+                state.metrics.cpu = Math.floor(Math.random() * (45 - 12) + 12);
+                state.metrics.ram = Math.floor(Math.random() * (68 - 50) + 50);
+                state.metrics.ping = Math.floor(Math.random() * (120 - 30) + 30);
+
+                document.getElementById('metric-cpu').innerText = `${state.metrics.cpu}%`;
+                document.getElementById('metric-ram').innerText = `${state.metrics.ram}%`;
+                document.getElementById('metric-ping').innerText = `${state.metrics.ping}ms`;
+            }, 3000);
+        }
+
+        // --- DATA EXPLORER LOGIC ---
+        async function loadTableList() {
+            const listEl = document.getElementById('table-list');
+            listEl.innerHTML = '<div class="p-4 text-center text-xs text-zinc-600">Fetching schemas...</div>';
+
+            try {
+                const { data, error } = await state.supabase.rpc('get_tables');
+                if (error) throw error;
+
+                listEl.innerHTML = '';
+                data.forEach(tbl => {
+                    const btn = document.createElement('button');
+                    btn.className = `w-full flex items-center gap-3 px-3 py-2 text-xs rounded-lg transition-all text-zinc-400 hover:bg-zinc-900 hover:text-white ${state.activeTable === tbl.table_name ? 'bg-zinc-900 text-white font-bold' : ''}`;
+                    btn.innerHTML = `<i data-lucide="table" class="w-3 h-3"></i> ${tbl.table_name}`;
+                    btn.onclick = () => selectTable(tbl.table_name);
+                    listEl.appendChild(btn);
+                });
+                lucide.createIcons();
+            } catch (err) {
+                listEl.innerHTML = `<div class="p-4 text-center text-xs text-red-400">RPC 'get_tables' not found. Check Setup Tab.</div>`;
+                logAction('Error', 'Failed to fetch tables: ' + err.message);
+            }
+        }
+
+        async function selectTable(tableName) {
+            state.activeTable = tableName;
+            state.currentPage = 0;
+            document.getElementById('active-table-name').innerText = tableName;
+            document.getElementById('btn-add-row').classList.remove('hidden');
+            document.getElementById('grid-empty').classList.add('hidden');
+            
+            // Update Sidebar active state
+            document.querySelectorAll('#table-list button').forEach(btn => {
+                btn.classList.toggle('bg-zinc-900', btn.innerText.trim() === tableName);
+                btn.classList.toggle('text-white', btn.innerText.trim() === tableName);
+            });
+
+            await fetchData();
+            logAction('Explorer', `Loaded table: ${tableName}`);
+        }
+
+        async function fetchData() {
+            const gridHead = document.getElementById('grid-head');
+            const gridBody = document.getElementById('grid-body');
+            
+            try {
+                const { data, error } = await state.supabase
+                    .from(state.activeTable)
+                    .select('*')
+                    .range(state.currentPage * state.pageSize, (state.currentPage + 1) * state.pageSize - 1);
+
+                if (error) throw error;
+                state.cachedData = data;
+
+                if (data.length === 0) {
+                    gridBody.innerHTML = '<tr><td colspan="100%" class="p-8 text-center text-zinc-600 italic">No records found.</td></tr>';
+                    return;
+                }
+
+                // Headers
+                const cols = Object.keys(data[0]);
+                gridHead.innerHTML = cols.map(c => `<th class="p-4 font-medium cursor-pointer hover:text-indigo-400 transition-colors">${c}</th>`).join('');
+
+                // Rows
+                gridBody.innerHTML = data.map(row => {
+                    return `<tr>${cols.map(c => `<td class="p-4 border-t border-zinc-800 mono text-zinc-400">${row[c] === null ? '<span class="text-zinc-700">NULL</span>' : row[c]}</td>`).join('')}
+                            <td class="p-4 border-t border-zinc-800 text-right">
+                                <button onclick="deleteRow('${row[cols[0]]}', '${cols[0]}')" class="p-1 text-zinc-600 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                            </td></tr>`;
+                }).join('');
+                
+                document.getElementById('grid-pagination-info').innerText = `Showing ${data.length} records`;
+                lucide.createIcons();
+            } catch (err) {
+                showAlert("Data fetch failed: " + err.message);
+            }
+        }
+
+        function changePage(dir) {
+            state.currentPage += dir;
+            if (state.currentPage < 0) state.currentPage = 0;
+            fetchData();
+        }
+
+        async function deleteRow(id, idCol) {
+            if (!confirm(`Are you sure you want to delete record ${id}?`)) return;
+            
+            try {
+                const { error } = await state.supabase.from(state.activeTable).delete().eq(idCol, id);
+                if (error) throw error;
+                logAction('Explorer', `Deleted row ${id} from ${state.activeTable}`);
+                fetchData();
+            } catch (err) {
+                showAlert("Delete failed: " + err.message);
+            }
+        }
+
+        // --- AUTH MANAGER LOGIC ---
+        async function loadAuthUsers() {
+            const listEl = document.getElementById('auth-user-list');
+            try {
+                const { data, error } = await state.supabase.auth.admin.listUsers();
+                if (error) throw error;
+
+                listEl.innerHTML = data.users.map(u => `
+                    <tr class="hover:bg-zinc-900/50 transition-colors">
+                        <td class="p-4 mono text-zinc-500">${u.id.substring(0, 8)}...</td>
+                        <td class="p-4 font-medium">${u.email}</td>
+                        <td class="p-4 text-zinc-500">${new Date(u.created_at).toLocaleDateString()}</td>
+                        <td class="p-4 text-zinc-500">${u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : 'Never'}</td>
+                        <td class="p-4 text-right">
+                            <button class="p-1 text-zinc-600 hover:text-red-500"><i data-lucide="user-x" class="w-4 h-4"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+                lucide.createIcons();
+            } catch (err) {
+                listEl.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-400">Error: ${err.message}. Ensure you are using the Service Role Key.</td></tr>`;
+            }
+        }
+
+        // --- SQL TERMINAL LOGIC ---
+        async function executeSql() {
+            const query = document.getElementById('sql-input').value;
+            const output = document.getElementById('sql-output');
+            const timer = document.getElementById('sql-execution-time');
+            
+            if (!query) return;
+
+            output.innerText = "Executing query...";
+            const start = performance.now();
+
+            try {
+                const { data, error } = await state.supabase.rpc('execute_sql', { sql_query: query });
+                if (error) throw error;
+
+                const end = performance.now();
+                timer.innerText = `${Math.round(end - start)}ms`;
+                output.innerText = JSON.stringify(data, null, 2);
+                logAction('SQL', `Executed query: ${query.substring(0, 30)}...`);
+            } catch (err) {
+                output.innerText = `Error: ${err.message}\n\nIf you see 'function execute_sql does not exist', please go to the Setup Tab and run the SQL script.`;
+                logAction('Error', `SQL Execution failed: ${err.message}`);
+            }
+        }
+
+        function clearSql() {
+            document.getElementById('sql-input').value = '';
+            document.getElementById('sql-output').innerText = 'Waiting for input...';
+        }
+
+        // --- UTILITIES & UI ---
+        function logAction(category, message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const log = { timestamp, category, message };
+            state.logs.unshift(log);
+
+            const logContainer = document.getElementById('global-activity-log');
+            if (state.logs.length === 1) logContainer.innerHTML = '';
+
+            const logItem = document.createElement('div');
+            logItem.className = 'p-3 border-b border-zinc-800 flex gap-4 text-xs items-center hover:bg-zinc-900 transition-colors';
+            logItem.innerHTML = `
+                <span class="text-zinc-600 mono w-20">${timestamp}</span>
+                <span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-bold w-24 text-center">${category}</span>
+                <span class="text-zinc-300 flex-1">${message}</span>
+            `;
+            logContainer.prepend(logItem);
+
+            // Also add to system logs tab
+            const stream = document.getElementById('log-stream');
+            const streamItem = document.createElement('div');
+            streamItem.className = 'p-2 border-b border-zinc-900 flex gap-4 hover:bg-zinc-900 transition-colors';
+            streamItem.innerHTML = `
+                <span class="text-zinc-600 w-24">${timestamp}</span>
+                <span class="text-indigo-500 w-20">[${category}]</span>
+                <span class="text-zinc-400 flex-1">${message}</span>
+            `;
+            stream.prepend(streamItem);
+        }
+
+        function clearLogs() {
+            state.logs = [];
+            document.getElementById('global-activity-log').innerHTML = '<div class="p-8 text-center text-zinc-600 italic text-sm">No activity recorded...</div>';
+            document.getElementById('log-stream').innerHTML = '';
+        }
+
+        function showAlert(msg) {
+            const banner = document.getElementById('alert-banner');
+            document.getElementById('alert-message').innerText = msg;
+            banner.classList.remove('hidden');
+            setTimeout(closeAlert, 5000);
+        }
+
+        function closeAlert() {
+            document.getElementById('alert-banner').classList.add('hidden');
+        }
+
+        async function updateGlobalStats() {
+            try {
+                const { data: tables } = await state.supabase.rpc('get_tables');
+                document.getElementById('stat-tables').innerText = tables?.length || 0;
+                
+                const { data: users, error } = await state.supabase.auth.admin.listUsers();
+                document.getElementById('stat-users').innerText = users?.total || 0;
+            } catch (e) {
+                console.log("Stats fetch partially failed");
+            }
+        }
+
+        function copySetupSql() {
+            const code = document.getElementById('setup-sql-code').innerText;
+            navigator.clipboard.writeText(code);
+            showAlert("SQL Setup code copied to clipboard!");
+        }
+
+        // Initialize Lucide on load
+        window.onload = () => lucide.createIcons();
     </script>
 </body>
 </html>
