@@ -44,10 +44,10 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const managementToken = Deno.env.get("SUPABASE_ACCESS_TOKEN");
+    const managementToken = Deno.env.get("CONTROL_SUPABASE_ACCESS_TOKEN");
     const adminEmails = (Deno.env.get("CONTROL_ADMIN_EMAILS") ?? "").split(",").map(v => v.trim().toLowerCase()).filter(Boolean);
     if (!supabaseUrl || !anonKey || !managementToken || adminEmails.length === 0) {
-      return reply({ error: "Backend is not configured. Set SUPABASE_ACCESS_TOKEN, CONTROL_ADMIN_EMAILS, and DASHBOARD_ORIGIN as Edge Function secrets." }, 503);
+      return reply({ error: "Backend is not configured. Set CONTROL_SUPABASE_ACCESS_TOKEN, CONTROL_ADMIN_EMAILS, and DASHBOARD_ORIGIN as Edge Function secrets." }, 503);
     }
 
     const authClient = createClient(supabaseUrl, anonKey, {
