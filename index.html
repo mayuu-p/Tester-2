@@ -1,708 +1,103 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Supabase Enterprise Control Panel</title>
-    
-    <!-- CDNs -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-        
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #09090b;
-            color: #fafafa;
-        }
-        .mono { font-family: 'JetBrains Mono', monospace; }
-        .glass { background: rgba(24, 24, 27, 0.8); backdrop-filter: blur(12px); }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #18181b; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #52525b; }
-        
-        .tab-active {
-            background-color: #27272a;
-            border-left: 4px solid #6366f1;
-            color: #fff;
-        }
-        
-        @keyframes pulse-glow {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(1.1); }
-        }
-        .glow-emerald {
-            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
-            animation: pulse-glow 2s infinite;
-        }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#09090b">
+<title>Supabase Control Centre · Tester-2</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap');
+:root{color-scheme:dark}*{box-sizing:border-box}body{font-family:Inter,system-ui,sans-serif;background:#09090b;color:#f4f4f5}.mono{font-family:'DM Mono',monospace}.panel{background:#111114;border:1px solid #27272a;border-radius:16px}.nav-active{background:#27272a;color:white;border-left:3px solid #818cf8}.field{background:#09090b;border:1px solid #3f3f46;border-radius:9px;padding:10px 12px;color:#f4f4f5;width:100%;outline:none}.field:focus{border-color:#818cf8;box-shadow:0 0 0 2px #818cf833}.btn{border:1px solid #3f3f46;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:600;transition:.15s}.btn:hover{background:#27272a}.primary{background:#4f46e5;border-color:#6366f1}.primary:hover{background:#6366f1}.muted{color:#a1a1aa}.table-wrap{overflow:auto;max-width:100%}th,td{padding:11px 13px;border-bottom:1px solid #27272a;text-align:left;white-space:nowrap;font-size:12px}th{color:#a1a1aa;background:#18181b;position:sticky;top:0}.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:#71717a}.status-dot.on{background:#34d399;box-shadow:0 0 12px #34d39977}.codearea{font-family:'DM Mono',monospace;background:#09090b;border:1px solid #27272a;border-radius:12px;padding:14px;outline:none;width:100%;min-height:190px;resize:vertical;color:#c4b5fd}.hidden{display:none!important}.pill{border:1px solid #3f3f46;background:#18181b;border-radius:999px;padding:4px 8px;font-size:10px}.metric{background:linear-gradient(145deg,#15151a,#0d0d10)}@media(max-width:800px){#sidebar{width:62px!important}#sidebar .nav-label,#sidebar .brand-label,#sidebar .side-foot{display:none}#sidebar nav button{justify-content:center;padding-left:0;padding-right:0}#main-header{padding-left:14px;padding-right:14px}#content{padding:14px!important}.desktop-only{display:none!important}} 
+</style>
 </head>
-<body class="h-screen overflow-hidden flex flex-col">
-
-    <!-- GLOBAL ALERT BANNER -->
-    <div id="alert-banner" class="hidden fixed top-0 left-0 right-0 z-[100] p-4 bg-red-600 text-white flex justify-between items-center animate-bounce">
-        <div class="flex items-center gap-3">
-            <i data-lucide="alert-circle"></i>
-            <span id="alert-message">Error connecting to Supabase</span>
-        </div>
-        <button onclick="closeAlert()" class="hover:text-gray-200">✕</button>
-    </div>
-
-    <!-- CONNECTION OVERLAY -->
-    <div id="connection-overlay" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-md">
-        <div class="w-full max-w-md p-8 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl">
-            <div class="flex flex-col items-center mb-8">
-                <div class="p-3 bg-indigo-600 rounded-xl mb-4">
-                    <i data-lucide="database" class="w-8 h-8 text-white"></i>
-                </div>
-                <h1 class="text-2xl font-bold">Enterprise Control</h1>
-                <p class="text-zinc-400 text-sm">Initialize secure session connection</p>
-            </div>
-            
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-xs font-medium text-zinc-500 mb-1 uppercase tracking-wider">Project URL</label>
-                    <input id="sb-url" type="text" placeholder="https://xyz.supabase.co" 
-                        class="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-zinc-500 mb-1 uppercase tracking-wider">Service Role Key (JWT)</label>
-                    <input id="sb-key" type="password" placeholder="eyJhbGciOiJIUzI1..." 
-                        class="w-full px-4 py-2 bg-zinc-800 border border-zinc-700 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
-                </div>
-                <button onclick="initializeConnection()" 
-                    class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2 group">
-                    <span>Connect to Cluster</span>
-                    <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i>
-                </button>
-            </div>
-            <p class="mt-6 text-center text-xs text-zinc-500">
-                Warning: Using the Service Role Key grants full administrative access.
-            </p>
-        </div>
-    </div>
-
-    <!-- MAIN APP LAYOUT -->
-    <div id="main-app" class="hidden h-full flex">
-        
-        <!-- LEFT SIDEBAR -->
-        <aside class="w-64 bg-zinc-950 border-r border-zinc-800 flex flex-col">
-            <div class="p-6 flex items-center gap-3 border-b border-zinc-800">
-                <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                    <i data-lucide="shield-check" class="w-5 h-5 text-white"></i>
-                </div>
-                <span class="font-bold text-lg tracking-tight">AdminPanel</span>
-            </div>
-
-            <nav class="flex-1 py-6 space-y-1 overflow-y-auto custom-scrollbar">
-                <button onclick="switchTab('overview')" id="nav-overview" class="w-full flex items-center gap-3 px-6 py-3 text-zinc-400 hover:text-white transition-colors tab-active">
-                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
-                    <span class="text-sm font-medium">Global Overview</span>
-                </button>
-                <button onclick="switchTab('explorer')" id="nav-explorer" class="w-full flex items-center gap-3 px-6 py-3 text-zinc-400 hover:text-white transition-colors">
-                    <i data-lucide="table-2" class="w-5 h-5"></i>
-                    <span class="text-sm font-medium">Data Explorer</span>
-                </button>
-                <button onclick="switchTab('auth')" id="nav-auth" class="w-full flex items-center gap-3 px-6 py-3 text-zinc-400 hover:text-white transition-colors">
-                    <i data-lucide="users" class="w-5 h-5"></i>
-                    <span class="text-sm font-medium">Auth Manager</span>
-                </button>
-                <button onclick="switchTab('sql')" id="nav-sql" class="w-full flex items-center gap-3 px-6 py-3 text-zinc-400 hover:text-white transition-colors">
-                    <i data-lucide="terminal" class="w-5 h-5"></i>
-                    <span class="text-sm font-medium">SQL Terminal</span>
-                </button>
-                <button onclick="switchTab('logs')" id="nav-logs" class="w-full flex items-center gap-3 px-6 py-3 text-zinc-400 hover:text-white transition-colors">
-                    <i data-lucide="activity" class="w-5 h-5"></i>
-                    <span class="text-sm font-medium">System Logs</span>
-                </button>
-                <div class="pt-4 pb-2 px-6 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">System</div>
-                <button onclick="switchTab('setup')" id="nav-setup" class="w-full flex items-center gap-3 px-6 py-3 text-zinc-400 hover:text-white transition-colors">
-                    <i data-lucide="settings" class="w-5 h-5"></i>
-                    <span class="text-sm font-medium">Setup Guide</span>
-                </button>
-            </nav>
-
-            <div class="p-4 border-t border-zinc-800">
-                <div class="flex items-center gap-3 p-2 rounded-lg bg-zinc-900 border border-zinc-800">
-                    <div id="status-indicator" class="w-3 h-3 rounded-full bg-red-500"></div>
-                    <span id="status-text" class="text-xs font-medium text-zinc-400">Disconnected</span>
-                </div>
-            </div>
-        </aside>
-
-        <!-- MAIN CONTENT AREA -->
-        <main class="flex-1 flex flex-col overflow-hidden bg-zinc-900">
-            
-            <!-- TOP STATUS BAR -->
-            <header class="h-16 border-b border-zinc-800 glass flex items-center justify-between px-8 sticky top-0 z-10">
-                <div class="flex items-center gap-6">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-bold text-zinc-500 uppercase">Environment:</span>
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">PRODUCTION</span>
-                    </div>
-                    <div class="h-4 w-px bg-zinc-800"></div>
-                    <div id="endpoint-display" class="text-xs text-zinc-400 mono truncate max-w-xs">No project connected</div>
-                </div>
-                <div class="flex items-center gap-4">
-                    <div class="flex items-center gap-4 text-xs font-medium">
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-zinc-500">CPU</span>
-                            <span id="metric-cpu" class="text-indigo-400">0%</span>
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-zinc-500">RAM</span>
-                            <span id="metric-ram" class="text-indigo-400">0%</span>
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <span class="text-zinc-500">LATENCY</span>
-                            <span id="metric-ping" class="text-indigo-400">0ms</span>
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            <!-- DYNAMIC VIEW CONTAINER -->
-            <div id="view-container" class="flex-1 overflow-y-auto custom-scrollbar p-8">
-                
-                <!-- OVERVIEW TAB -->
-                <section id="view-overview" class="space-y-8">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <div class="p-6 bg-zinc-950 border border-zinc-800 rounded-2xl">
-                            <div class="flex justify-between items-start mb-4">
-                                <div class="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg"><i data-lucide="database" class="w-5 h-5"></i></div>
-                                <span class="text-xs text-emerald-500 font-medium">+12%</span>
-                            </div>
-                            <div class="text-2xl font-bold" id="stat-tables">0</div>
-                            <div class="text-xs text-zinc-500 uppercase tracking-wider mt-1">Total Tables</div>
-                        </div>
-                        <div class="p-6 bg-zinc-950 border border-zinc-800 rounded-2xl">
-                            <div class="flex justify-between items-start mb-4">
-                                <div class="p-2 bg-blue-500/10 text-blue-500 rounded-lg"><i data-lucide="users" class="w-5 h-5"></i></div>
-                                <span class="text-xs text-zinc-500 font-medium">Live</span>
-                            </div>
-                            <div class="text-2xl font-bold" id="stat-users">0</div>
-                            <div class="text-xs text-zinc-500 uppercase tracking-wider mt-1">Auth Users</div>
-                        </div>
-                        <div class="p-6 bg-zinc-950 border border-zinc-800 rounded-2xl">
-                            <div class="flex justify-between items-start mb-4">
-                                <div class="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg"><i data-lucide="hard-drive" class="w-5 h-5"></i></div>
-                                <span class="text-xs text-zinc-500 font-medium">Stable</span>
-                            </div>
-                            <div class="text-2xl font-bold" id="stat-storage">--</div>
-                            <div class="text-xs text-zinc-500 uppercase tracking-wider mt-1">Storage Used</div>
-                        </div>
-                        <div class="p-6 bg-zinc-950 border border-zinc-800 rounded-2xl">
-                            <div class="flex justify-between items-start mb-4">
-                                <div class="p-2 bg-amber-500/10 text-amber-500 rounded-lg"><i data-lucide="zap" class="w-5 h-5"></i></div>
-                                <span class="text-xs text-amber-500 font-medium">Active</span>
-                            </div>
-                            <div class="text-2xl font-bold" id="stat-requests">0</div>
-                            <div class="text-xs text-zinc-500 uppercase tracking-wider mt-1">API Requests (1h)</div>
-                        </div>
-                    </div>
-
-                    <div class="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden">
-                        <div class="p-6 border-b border-zinc-800 flex justify-between items-center">
-                            <h3 class="font-bold flex items-center gap-2"><i data-lucide="list" class="w-4 h-4"></i> Global Activity Log</h3>
-                            <button onclick="clearLogs()" class="text-xs text-zinc-500 hover:text-white transition-colors">Clear Log</button>
-                        </div>
-                        <div id="global-activity-log" class="p-0 max-h-[400px] overflow-y-auto custom-scrollbar">
-                            <div class="p-8 text-center text-zinc-600 italic text-sm">No activity recorded in current session...</div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- EXPLORER TAB -->
-                <section id="view-explorer" class="hidden h-full flex gap-6">
-                    <div class="w-64 shrink-0 bg-zinc-950 border border-zinc-800 rounded-2xl flex flex-col">
-                        <div class="p-4 border-b border-zinc-800">
-                            <input id="table-search" type="text" placeholder="Search tables..." 
-                                class="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-lg text-xs outline-none focus:ring-1 focus:ring-indigo-500">
-                        </div>
-                        <div id="table-list" class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
-                            <div class="p-4 text-center text-xs text-zinc-600">Connect to load tables...</div>
-                        </div>
-                    </div>
-                    <div class="flex-1 bg-zinc-950 border border-zinc-800 rounded-2xl flex flex-col overflow-hidden">
-                        <div id="explorer-header" class="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
-                            <div class="flex items-center gap-3">
-                                <i data-lucide="table" class="w-5 h-5 text-indigo-500"></i>
-                                <h3 id="active-table-name" class="font-bold">Select a Table</h3>
-                            </div>
-                            <div class="flex gap-2">
-                                <button onclick="openCreateModal()" id="btn-add-row" class="hidden px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-all flex items-center gap-2">
-                                    <i data-lucide="plus" class="w-3 h-3"></i> Add Row
-                                </button>
-                            </div>
-                        </div>
-                        <div id="data-grid-container" class="flex-1 overflow-auto custom-scrollbar relative">
-                            <table id="data-grid" class="w-full text-left text-xs border-collapse">
-                                <thead class="sticky top-0 bg-zinc-900 text-zinc-500 uppercase tracking-wider z-10">
-                                    <tr id="grid-head">
-                                        <th class="p-4 font-medium">No data loaded</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="grid-body" class="divide-y divide-zinc-800">
-                                    <!-- Dynamic content -->
-                                </tbody>
-                            </table>
-                            <div id="grid-empty" class="absolute inset-0 flex items-center justify-center text-zinc-600 italic">
-                                Please select a table from the sidebar to explore data.
-                            </div>
-                        </div>
-                        <div class="p-4 border-t border-zinc-800 flex items-center justify-between bg-zinc-900/30">
-                            <span id="grid-pagination-info" class="text-xs text-zinc-500">Rows: 0</span>
-                            <div class="flex gap-2">
-                                <button id="prev-page" onclick="changePage(-1)" class="p-1 px-3 rounded bg-zinc-800 text-zinc-400 disabled:opacity-30">Prev</button>
-                                <button id="next-page" onclick="changePage(1)" class="p-1 px-3 rounded bg-zinc-800 text-zinc-400 disabled:opacity-30">Next</button>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- AUTH TAB -->
-                <section id="view-auth" class="hidden space-y-6">
-                    <div class="flex justify-between items-center">
-                        <h2 class="text-xl font-bold">User Management</h2>
-                        <button onclick="openUserModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg flex items-center gap-2">
-                            <i data-lucide="user-plus" class="w-4 h-4"></i> Invite User
-                        </button>
-                    </div>
-                    <div class="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden">
-                        <table class="w-full text-left text-xs">
-                            <thead class="bg-zinc-900 text-zinc-500 uppercase tracking-wider">
-                                <tr>
-                                    <th class="p-4">User ID</th>
-                                    <th class="p-4">Email</th>
-                                    <th class="p-4">Created At</th>
-                                    <th class="p-4">Last Sign In</th>
-                                    <th class="p-4 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="auth-user-list" class="divide-y divide-zinc-800">
-                                <tr><td colspan="5" class="p-8 text-center text-zinc-600 italic">Loading users...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <!-- SQL TAB -->
-                <section id="view-sql" class="hidden h-full flex flex-col gap-6">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <h2 class="text-xl font-bold">SQL Terminal</h2>
-                            <p class="text-xs text-zinc-500">Execute raw queries against your database cluster</p>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="clearSql()" class="px-4 py-2 bg-zinc-800 text-zinc-300 text-xs font-medium rounded-lg hover:bg-zinc-700 transition-all">Clear</button>
-                            <button onclick="executeSql()" class="px-4 py-2 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-500 transition-all flex items-center gap-2">
-                                <i data-lucide="play" class="w-3 h-3"></i> Run Query
-                            </button>
-                        </div>
-                    </div>
-                    <div class="flex-1 flex flex-col gap-4 min-h-0">
-                        <div class="h-1/3 relative">
-                            <textarea id="sql-input" class="w-full h-full p-4 bg-zinc-950 border border-zinc-800 rounded-2xl mono text-sm outline-none focus:ring-2 focus:ring-indigo-500 text-indigo-300 resize-none" placeholder="SELECT * FROM users LIMIT 10;"></textarea>
-                        </div>
-                        <div class="flex-1 bg-zinc-950 border border-zinc-800 rounded-2xl flex flex-col overflow-hidden">
-                            <div class="p-3 border-b border-zinc-800 bg-zinc-900 flex justify-between items-center">
-                                <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Query Result (JSON)</span>
-                                <span id="sql-execution-time" class="text-[10px] text-zinc-600">--</span>
-                            </div>
-                            <pre id="sql-output" class="flex-1 p-4 mono text-xs overflow-auto custom-scrollbar text-zinc-400">Waiting for input...</pre>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- LOGS TAB -->
-                <section id="view-logs" class="hidden h-full flex flex-col gap-6">
-                    <div class="flex justify-between items-center">
-                        <h2 class="text-xl font-bold">Infrastructure Logs</h2>
-                        <div class="flex gap-2">
-                            <select class="bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-300 outline-none">
-                                <option>All Levels</option>
-                                <option>Error</option>
-                                <option>Warning</option>
-                                <option>Info</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div id="full-system-logs" class="flex-1 bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden flex flex-col">
-                        <div class="p-2 bg-zinc-900 border-b border-zinc-800 flex gap-4 text-[10px] font-bold text-zinc-500 uppercase px-4">
-                            <span class="w-24">Timestamp</span>
-                            <span class="w-20">Level</span>
-                            <span class="flex-1">Event</span>
-                        </div>
-                        <div id="log-stream" class="flex-1 overflow-y-auto custom-scrollbar mono text-xs">
-                            <!-- Logs stream here -->
-                        </div>
-                    </div>
-                </section>
-
-                <!-- SETUP TAB -->
-                <section id="view-setup" class="hidden space-y-8">
-                    <div class="max-w-3xl">
-                        <h2 class="text-2xl font-bold mb-4">System Setup Guide</h2>
-                        <p class="text-zinc-400 mb-6">Because the Supabase JS client is designed for frontend use, administrative tasks like listing tables and executing raw SQL require <strong>Remote Procedure Calls (RPC)</strong> to be enabled on your database.</p>
-                        
-                        <div class="bg-indigo-900/20 border border-indigo-500/30 p-6 rounded-2xl mb-8">
-                            <h3 class="text-indigo-400 font-bold mb-2 flex items-center gap-2">
-                                <i data-lucide="info" class="w-4 h-4"></i> Essential Database Extensions
-                            </h3>
-                            <p class="text-sm text-zinc-300">Copy and run the following SQL in your Supabase Dashboard SQL Editor to enable the Table Explorer and SQL Console:</p>
-                        </div>
-
-                        <div class="relative group">
-                            <pre class="bg-zinc-950 p-6 rounded-2xl border border-zinc-800 text-xs mono text-zinc-400 overflow-x-auto custom-scrollbar leading-relaxed" id="setup-sql-code">
--- 1. FUNCTION TO LIST ALL TABLES
-CREATE OR REPLACE FUNCTION get_tables() 
-RETURNS TABLE (table_name text) 
-LANGUAGE plpgsql 
-SECURITY DEFINER 
-AS $$
-BEGIN
-    RETURN QUERY 
-    SELECT t.table_name::text 
-    FROM information_schema.tables t 
-    WHERE t.table_schema = 'public';
-END;
-$$;
-
--- 2. FUNCTION TO EXECUTE RAW SQL
-CREATE OR REPLACE FUNCTION execute_sql(sql_query text) 
-RETURNS jsonb 
-LANGUAGE plpgsql 
-SECURITY DEFINER 
-AS $$
-DECLARE 
-    result jsonb;
-BEGIN
-    EXECUTE 'SELECT jsonb_agg(t) FROM (' || sql_query || ') t' INTO result;
-    RETURN result;
-END;
-$$;
-                            </pre>
-                            <button onclick="copySetupSql()" class="absolute top-4 right-4 p-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-all">
-                                <i data-lucide="copy" class="w-4 h-4"></i>
-                            </button>
-                        </div>
-                    </div>
-                </section>
-
-            </div>
-        </main>
-    </div>
-
-    <!-- MODALS -->
-    <div id="modal-overlay" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-        <div id="modal-content" class="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
-            <!-- Dynamic Modal Content -->
-        </div>
-    </div>
-
-    <script>
-        // --- GLOBAL STATE ---
-        const state = {
-            supabase: null,
-            activeTab: 'overview',
-            activeTable: null,
-            cachedData: [],
-            currentPage: 0,
-            pageSize: 20,
-            logs: [],
-            metrics: {
-                cpu: 0,
-                ram: 0,
-                ping: 0
-            }
-        };
-
-        // --- INITIALIZATION ---
-        function initializeConnection() {
-            const url = document.getElementById('sb-url').value;
-            const key = document.getElementById('sb-key').value;
-
-            if (!url || !key) {
-                showAlert("Project URL and Service Key are required.");
-                return;
-            }
-
-            try {
-                state.supabase = supabase.createClient(url, key);
-                
-                // Validate connection
-                const { data, error } = state.supabase.from('_test_connection').select('count', { count: 'exact', head: true });
-                
-                // We don't care if the table doesn't exist, just if the client can talk to the API
-                document.getElementById('connection-overlay').classList.add('hidden');
-                document.getElementById('main-app').classList.remove('hidden');
-                
-                document.getElementById('status-indicator').className = 'w-3 h-3 rounded-full bg-emerald-500 glow-emerald';
-                document.getElementById('status-text').innerText = 'Connected';
-                document.getElementById('endpoint-display').innerText = url;
-
-                logAction('System', 'Secure connection established to cluster');
-                startMetricSimulation();
-                updateGlobalStats();
-                lucide.createIcons();
-            } catch (err) {
-                showAlert("Initialization failed: " + err.message);
-            }
-        }
-
-        // --- NAVIGATION ---
-        function switchTab(tabId) {
-            state.activeTab = tabId;
-            
-            // Update UI Navigation
-            document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('tab-active'));
-            document.getElementById(`nav-${tabId}`).classList.add('tab-active');
-            
-            // Switch View
-            document.querySelectorAll('section').forEach(sec => sec.classList.add('hidden'));
-            document.getElementById(`view-${tabId}`).classList.remove('hidden');
-
-            if (tabId === 'explorer') loadTableList();
-            if (tabId === 'auth') loadAuthUsers();
-            
-            lucide.createIcons();
-        }
-
-        // --- METRICS SIMULATION ---
-        function startMetricSimulation() {
-            setInterval(() => {
-                state.metrics.cpu = Math.floor(Math.random() * (45 - 12) + 12);
-                state.metrics.ram = Math.floor(Math.random() * (68 - 50) + 50);
-                state.metrics.ping = Math.floor(Math.random() * (120 - 30) + 30);
-
-                document.getElementById('metric-cpu').innerText = `${state.metrics.cpu}%`;
-                document.getElementById('metric-ram').innerText = `${state.metrics.ram}%`;
-                document.getElementById('metric-ping').innerText = `${state.metrics.ping}ms`;
-            }, 3000);
-        }
-
-        // --- DATA EXPLORER LOGIC ---
-        async function loadTableList() {
-            const listEl = document.getElementById('table-list');
-            listEl.innerHTML = '<div class="p-4 text-center text-xs text-zinc-600">Fetching schemas...</div>';
-
-            try {
-                const { data, error } = await state.supabase.rpc('get_tables');
-                if (error) throw error;
-
-                listEl.innerHTML = '';
-                data.forEach(tbl => {
-                    const btn = document.createElement('button');
-                    btn.className = `w-full flex items-center gap-3 px-3 py-2 text-xs rounded-lg transition-all text-zinc-400 hover:bg-zinc-900 hover:text-white ${state.activeTable === tbl.table_name ? 'bg-zinc-900 text-white font-bold' : ''}`;
-                    btn.innerHTML = `<i data-lucide="table" class="w-3 h-3"></i> ${tbl.table_name}`;
-                    btn.onclick = () => selectTable(tbl.table_name);
-                    listEl.appendChild(btn);
-                });
-                lucide.createIcons();
-            } catch (err) {
-                listEl.innerHTML = `<div class="p-4 text-center text-xs text-red-400">RPC 'get_tables' not found. Check Setup Tab.</div>`;
-                logAction('Error', 'Failed to fetch tables: ' + err.message);
-            }
-        }
-
-        async function selectTable(tableName) {
-            state.activeTable = tableName;
-            state.currentPage = 0;
-            document.getElementById('active-table-name').innerText = tableName;
-            document.getElementById('btn-add-row').classList.remove('hidden');
-            document.getElementById('grid-empty').classList.add('hidden');
-            
-            // Update Sidebar active state
-            document.querySelectorAll('#table-list button').forEach(btn => {
-                btn.classList.toggle('bg-zinc-900', btn.innerText.trim() === tableName);
-                btn.classList.toggle('text-white', btn.innerText.trim() === tableName);
-            });
-
-            await fetchData();
-            logAction('Explorer', `Loaded table: ${tableName}`);
-        }
-
-        async function fetchData() {
-            const gridHead = document.getElementById('grid-head');
-            const gridBody = document.getElementById('grid-body');
-            
-            try {
-                const { data, error } = await state.supabase
-                    .from(state.activeTable)
-                    .select('*')
-                    .range(state.currentPage * state.pageSize, (state.currentPage + 1) * state.pageSize - 1);
-
-                if (error) throw error;
-                state.cachedData = data;
-
-                if (data.length === 0) {
-                    gridBody.innerHTML = '<tr><td colspan="100%" class="p-8 text-center text-zinc-600 italic">No records found.</td></tr>';
-                    return;
-                }
-
-                // Headers
-                const cols = Object.keys(data[0]);
-                gridHead.innerHTML = cols.map(c => `<th class="p-4 font-medium cursor-pointer hover:text-indigo-400 transition-colors">${c}</th>`).join('');
-
-                // Rows
-                gridBody.innerHTML = data.map(row => {
-                    return `<tr>${cols.map(c => `<td class="p-4 border-t border-zinc-800 mono text-zinc-400">${row[c] === null ? '<span class="text-zinc-700">NULL</span>' : row[c]}</td>`).join('')}
-                            <td class="p-4 border-t border-zinc-800 text-right">
-                                <button onclick="deleteRow('${row[cols[0]]}', '${cols[0]}')" class="p-1 text-zinc-600 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
-                            </td></tr>`;
-                }).join('');
-                
-                document.getElementById('grid-pagination-info').innerText = `Showing ${data.length} records`;
-                lucide.createIcons();
-            } catch (err) {
-                showAlert("Data fetch failed: " + err.message);
-            }
-        }
-
-        function changePage(dir) {
-            state.currentPage += dir;
-            if (state.currentPage < 0) state.currentPage = 0;
-            fetchData();
-        }
-
-        async function deleteRow(id, idCol) {
-            if (!confirm(`Are you sure you want to delete record ${id}?`)) return;
-            
-            try {
-                const { error } = await state.supabase.from(state.activeTable).delete().eq(idCol, id);
-                if (error) throw error;
-                logAction('Explorer', `Deleted row ${id} from ${state.activeTable}`);
-                fetchData();
-            } catch (err) {
-                showAlert("Delete failed: " + err.message);
-            }
-        }
-
-        // --- AUTH MANAGER LOGIC ---
-        async function loadAuthUsers() {
-            const listEl = document.getElementById('auth-user-list');
-            try {
-                const { data, error } = await state.supabase.auth.admin.listUsers();
-                if (error) throw error;
-
-                listEl.innerHTML = data.users.map(u => `
-                    <tr class="hover:bg-zinc-900/50 transition-colors">
-                        <td class="p-4 mono text-zinc-500">${u.id.substring(0, 8)}...</td>
-                        <td class="p-4 font-medium">${u.email}</td>
-                        <td class="p-4 text-zinc-500">${new Date(u.created_at).toLocaleDateString()}</td>
-                        <td class="p-4 text-zinc-500">${u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString() : 'Never'}</td>
-                        <td class="p-4 text-right">
-                            <button class="p-1 text-zinc-600 hover:text-red-500"><i data-lucide="user-x" class="w-4 h-4"></i></button>
-                        </td>
-                    </tr>
-                `).join('');
-                lucide.createIcons();
-            } catch (err) {
-                listEl.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-400">Error: ${err.message}. Ensure you are using the Service Role Key.</td></tr>`;
-            }
-        }
-
-        // --- SQL TERMINAL LOGIC ---
-        async function executeSql() {
-            const query = document.getElementById('sql-input').value;
-            const output = document.getElementById('sql-output');
-            const timer = document.getElementById('sql-execution-time');
-            
-            if (!query) return;
-
-            output.innerText = "Executing query...";
-            const start = performance.now();
-
-            try {
-                const { data, error } = await state.supabase.rpc('execute_sql', { sql_query: query });
-                if (error) throw error;
-
-                const end = performance.now();
-                timer.innerText = `${Math.round(end - start)}ms`;
-                output.innerText = JSON.stringify(data, null, 2);
-                logAction('SQL', `Executed query: ${query.substring(0, 30)}...`);
-            } catch (err) {
-                output.innerText = `Error: ${err.message}\n\nIf you see 'function execute_sql does not exist', please go to the Setup Tab and run the SQL script.`;
-                logAction('Error', `SQL Execution failed: ${err.message}`);
-            }
-        }
-
-        function clearSql() {
-            document.getElementById('sql-input').value = '';
-            document.getElementById('sql-output').innerText = 'Waiting for input...';
-        }
-
-        // --- UTILITIES & UI ---
-        function logAction(category, message) {
-            const timestamp = new Date().toLocaleTimeString();
-            const log = { timestamp, category, message };
-            state.logs.unshift(log);
-
-            const logContainer = document.getElementById('global-activity-log');
-            if (state.logs.length === 1) logContainer.innerHTML = '';
-
-            const logItem = document.createElement('div');
-            logItem.className = 'p-3 border-b border-zinc-800 flex gap-4 text-xs items-center hover:bg-zinc-900 transition-colors';
-            logItem.innerHTML = `
-                <span class="text-zinc-600 mono w-20">${timestamp}</span>
-                <span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-bold w-24 text-center">${category}</span>
-                <span class="text-zinc-300 flex-1">${message}</span>
-            `;
-            logContainer.prepend(logItem);
-
-            // Also add to system logs tab
-            const stream = document.getElementById('log-stream');
-            const streamItem = document.createElement('div');
-            streamItem.className = 'p-2 border-b border-zinc-900 flex gap-4 hover:bg-zinc-900 transition-colors';
-            streamItem.innerHTML = `
-                <span class="text-zinc-600 w-24">${timestamp}</span>
-                <span class="text-indigo-500 w-20">[${category}]</span>
-                <span class="text-zinc-400 flex-1">${message}</span>
-            `;
-            stream.prepend(streamItem);
-        }
-
-        function clearLogs() {
-            state.logs = [];
-            document.getElementById('global-activity-log').innerHTML = '<div class="p-8 text-center text-zinc-600 italic text-sm">No activity recorded...</div>';
-            document.getElementById('log-stream').innerHTML = '';
-        }
-
-        function showAlert(msg) {
-            const banner = document.getElementById('alert-banner');
-            document.getElementById('alert-message').innerText = msg;
-            banner.classList.remove('hidden');
-            setTimeout(closeAlert, 5000);
-        }
-
-        function closeAlert() {
-            document.getElementById('alert-banner').classList.add('hidden');
-        }
-
-        async function updateGlobalStats() {
-            try {
-                const { data: tables } = await state.supabase.rpc('get_tables');
-                document.getElementById('stat-tables').innerText = tables?.length || 0;
-                
-                const { data: users, error } = await state.supabase.auth.admin.listUsers();
-                document.getElementById('stat-users').innerText = users?.total || 0;
-            } catch (e) {
-                console.log("Stats fetch partially failed");
-            }
-        }
-
-        function copySetupSql() {
-            const code = document.getElementById('setup-sql-code').innerText;
-            navigator.clipboard.writeText(code);
-            showAlert("SQL Setup code copied to clipboard!");
-        }
-
-        // Initialize Lucide on load
-        window.onload = () => lucide.createIcons();
-    </script>
+<body class="min-h-screen">
+<div id="alert" class="hidden fixed top-3 left-3 right-3 z-50 max-w-3xl mx-auto border border-red-500/50 bg-red-950 text-red-100 p-4 rounded-xl flex items-start justify-between gap-3 shadow-2xl"><div class="flex gap-3"><i data-lucide="alert-triangle" class="w-5 h-5 shrink-0"></i><div><b class="text-sm">Action needs attention</b><p id="alertText" class="text-sm mt-1"></p></div></div><button id="alertClose" aria-label="Close alert">✕</button></div>
+<div id="signin" class="min-h-screen flex items-center justify-center p-4">
+ <div class="panel p-7 w-full max-w-md">
+  <div class="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center mb-5"><i data-lucide="shield-check" class="w-6 h-6"></i></div>
+  <p class="text-indigo-300 text-xs uppercase tracking-[.22em] font-bold">Mayuu · Control plane</p><h1 class="text-2xl font-extrabold mt-2">Supabase Control Centre</h1><p class="muted text-sm mt-2 mb-6">Sign in to administer only the projects explicitly allowed by the secure backend.</p>
+  <form id="signinForm" class="space-y-3"><label class="block text-xs muted">Control project URL<input id="controlUrl" class="field mt-1" type="url" required placeholder="https://your-control-project.supabase.co"></label><label class="block text-xs muted">Publishable / anon key<input id="controlKey" class="field mt-1" required autocomplete="off" placeholder="sb_publishable_… or anon JWT"></label><label class="block text-xs muted">Admin email<input id="email" class="field mt-1" type="email" required autocomplete="username" placeholder="you@example.com"></label><label class="block text-xs muted">Password<input id="password" class="field mt-1" type="password" required autocomplete="current-password" placeholder="Control project account password"></label><button class="btn primary w-full py-3" type="submit">Sign in securely <span aria-hidden="true">→</span></button></form>
+  <p class="text-[11px] muted mt-5 leading-relaxed">Use a dedicated control project. Never enter a service-role key or Management API token here. Access is additionally restricted by the Edge Function allowlist.</p>
+ </div>
+</div>
+<div id="app" class="hidden min-h-screen">
+ <aside id="sidebar" class="fixed inset-y-0 left-0 z-20 w-64 bg-[#0c0c0f] border-r border-zinc-800 flex flex-col">
+  <div class="h-20 px-5 flex items-center gap-3 border-b border-zinc-800"><div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center"><i data-lucide="shield-check" class="w-5 h-5"></i></div><div class="brand-label"><div class="font-bold text-sm">Control Centre</div><div class="text-[10px] text-zinc-500">SUPABASE · ADMIN</div></div></div>
+  <nav class="p-3 space-y-1 flex-1">
+   <button data-view="overview" class="navbtn nav-active w-full rounded-lg p-3 flex items-center gap-3 text-zinc-400 text-sm"><i data-lucide="layout-dashboard" class="w-4 h-4"></i><span class="nav-label">Overview</span></button>
+   <button data-view="projects" class="navbtn w-full rounded-lg p-3 flex items-center gap-3 text-zinc-400 text-sm"><i data-lucide="layers-3" class="w-4 h-4"></i><span class="nav-label">Project inventory</span></button>
+   <button data-view="explorer" class="navbtn w-full rounded-lg p-3 flex items-center gap-3 text-zinc-400 text-sm"><i data-lucide="database" class="w-4 h-4"></i><span class="nav-label">Schema explorer</span></button>
+   <button data-view="sql" class="navbtn w-full rounded-lg p-3 flex items-center gap-3 text-zinc-400 text-sm"><i data-lucide="terminal-square" class="w-4 h-4"></i><span class="nav-label">SQL terminal</span></button>
+   <button data-view="auth" class="navbtn w-full rounded-lg p-3 flex items-center gap-3 text-zinc-400 text-sm"><i data-lucide="users" class="w-4 h-4"></i><span class="nav-label">Auth & access</span></button>
+   <button data-view="activity" class="navbtn w-full rounded-lg p-3 flex items-center gap-3 text-zinc-400 text-sm"><i data-lucide="list-checks" class="w-4 h-4"></i><span class="nav-label">Activity log</span></button>
+   <button data-view="settings" class="navbtn w-full rounded-lg p-3 flex items-center gap-3 text-zinc-400 text-sm"><i data-lucide="settings-2" class="w-4 h-4"></i><span class="nav-label">Settings & setup</span></button>
+  </nav><div class="side-foot p-4 border-t border-zinc-800"><div class="text-[10px] text-zinc-500">SECURE CONTROL PLANE</div><div class="text-xs text-zinc-300 mt-1">Server-side token isolation</div></div>
+ </aside>
+ <main class="ml-64 min-h-screen" id="main" style="margin-left:256px">
+  <header id="main-header" class="sticky top-0 z-10 h-16 border-b border-zinc-800 bg-[#09090bf0] backdrop-blur flex items-center justify-between px-7">
+   <div><div class="text-xs text-zinc-500">CONTROL PLANE / <span id="crumb" class="text-zinc-200">OVERVIEW</span></div><div id="projectHeader" class="text-[11px] text-zinc-500 mono mt-1">No project selected</div></div>
+   <div class="flex items-center gap-3"><span class="pill text-emerald-300"><span class="status-dot on mr-1"></span> AUTHENTICATED</span><button id="refreshBtn" class="btn" title="Refresh current view"><i data-lucide="refresh-cw" class="w-3 h-3 inline mr-1"></i><span class="desktop-only">Refresh</span></button><button id="signoutBtn" class="btn" title="Sign out">Sign out</button></div>
+  </header>
+  <div id="content" class="p-7 max-w-[1600px] mx-auto">
+   <section data-panel="overview" class="space-y-6">
+    <div class="flex flex-wrap items-end justify-between gap-4"><div><p class="text-indigo-300 text-xs uppercase tracking-[.2em] font-bold">System overview</p><h1 class="text-3xl font-extrabold mt-2">Your database estate.</h1><p class="muted text-sm mt-2">A guarded control plane for projects you explicitly authorize.</p></div><button id="loadProjects" class="btn primary"><i data-lucide="refresh-cw" class="w-3 h-3 inline mr-1"></i> Load projects</button></div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"><div class="panel metric p-5"><div class="muted text-xs">Allowed projects</div><div id="metricProjects" class="text-3xl font-bold mt-3">—</div><div class="text-[11px] text-zinc-500 mt-2">From secure server allowlist</div></div><div class="panel metric p-5"><div class="muted text-xs">Selected project</div><div id="metricSelected" class="text-lg font-bold mt-3 truncate">None</div><div class="text-[11px] text-zinc-500 mt-2">Management API metadata</div></div><div class="panel metric p-5"><div class="muted text-xs">Discovered tables</div><div id="metricTables" class="text-3xl font-bold mt-3">—</div><div class="text-[11px] text-zinc-500 mt-2">Live information_schema query</div></div><div class="panel metric p-5"><div class="muted text-xs">API connection</div><div id="metricConnection" class="text-xl font-bold mt-3 text-amber-300">Waiting</div><div class="text-[11px] text-zinc-500 mt-2">No fabricated CPU / RAM readings</div></div></div>
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4"><div class="panel p-5 xl:col-span-2"><div class="flex items-center justify-between mb-4"><h2 class="font-bold">Managed projects</h2><span class="pill">ALLOWLISTED</span></div><div id="overviewProjects" class="space-y-2"><div class="muted text-sm">Load the project inventory to begin.</div></div></div><div class="panel p-5"><h2 class="font-bold mb-3">Safety posture</h2><div class="space-y-3 text-sm"><div class="flex gap-2"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 shrink-0"></i><span class="muted">Management token stays on the server</span></div><div class="flex gap-2"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 shrink-0"></i><span class="muted">Admin email allowlist enforced</span></div><div class="flex gap-2"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 shrink-0"></i><span class="muted">Project-ref allowlist enforced</span></div><div class="flex gap-2"><i data-lucide="alert-triangle" class="w-4 h-4 text-amber-300 shrink-0"></i><span class="muted">SQL can still permanently change data</span></div></div></div></div>
+   </section>
+   <section data-panel="projects" class="hidden space-y-5"><div><h1 class="text-2xl font-bold">Project inventory</h1><p class="muted text-sm mt-2">Only refs configured on the backend are shown.</p></div><div class="panel p-4 flex flex-wrap gap-3"><input id="projectFilter" class="field max-w-sm" placeholder="Filter projects by name or ref"><button id="projectRefresh" class="btn primary">Refresh inventory</button></div><div id="projectList" class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4"></div></section>
+   <section data-panel="explorer" class="hidden space-y-5"><div><h1 class="text-2xl font-bold">Schema explorer</h1><p class="muted text-sm mt-2">Discover schemas, tables, columns and foreign-key relationships with read-only metadata queries.</p></div><div class="panel p-4 flex flex-wrap items-end gap-3"><label class="text-xs muted flex-1 min-w-56">Active project<select id="projectSelect" class="field mt-1"><option value="">Load projects first</option></select></label><button id="discoverSchema" class="btn primary">Discover schema</button></div><div class="grid grid-cols-1 xl:grid-cols-3 gap-4"><div class="panel p-4"><div class="font-bold mb-3">Tables & views</div><input id="tableFilter" class="field mb-3" placeholder="Filter tables"><div id="tableList" class="space-y-1 max-h-[55vh] overflow-auto"><p class="muted text-sm">Discover a schema to list tables.</p></div></div><div class="panel p-4 xl:col-span-2 min-w-0"><div class="flex items-center justify-between gap-3 mb-3"><div><div id="tableTitle" class="font-bold">Select a table</div><div id="tableSubtitle" class="text-xs muted mt-1">Column metadata and records</div></div><button id="loadRows" class="btn">Load first 50 rows</button></div><div id="columnInfo" class="table-wrap mb-4"></div><div class="table-wrap"><table class="w-full"><thead id="dataHead"></thead><tbody id="dataBody"><tr><td class="muted">No table selected.</td></tr></tbody></table></div></div></div></section>
+   <section data-panel="sql" class="hidden space-y-5"><div><h1 class="text-2xl font-bold">SQL terminal</h1><p class="muted text-sm mt-2">One statement at a time. Writes and DDL require a separate confirmation. Start with read-only queries.</p></div><div class="panel p-4 flex flex-wrap items-end gap-3"><label class="text-xs muted flex-1 min-w-56">Target project<select id="sqlProject" class="field mt-1"><option value="">Load projects first</option></select></label><button id="exampleSelect" class="btn">Insert safe example</button><button id="runSql" class="btn primary">Execute SQL</button></div><textarea id="sqlInput" class="codearea" spellcheck="false" aria-label="SQL query">SELECT current_database() AS database_name, current_user AS database_role;</textarea><div id="writeWarning" class="hidden panel p-4 border-amber-500/40"><div class="flex gap-3"><i data-lucide="alert-triangle" class="w-5 h-5 text-amber-300 shrink-0"></i><div class="flex-1"><b class="text-amber-200 text-sm">Potential write or schema change</b><p class="muted text-xs mt-1">Review the exact statement. It will run against the selected project with elevated database permissions.</p><label class="flex gap-2 items-center text-sm mt-3"><input id="confirmWrite" type="checkbox"> I understand this can permanently change or delete production data.</label></div></div></div><div class="panel overflow-hidden"><div class="p-3 border-b border-zinc-800 flex items-center justify-between"><b class="text-sm">Response payload</b><span id="queryDuration" class="muted text-xs">Not run</span></div><pre id="queryOutput" class="mono text-xs p-4 overflow-auto max-h-[50vh] text-zinc-300 whitespace-pre-wrap">Ready. No query has been executed.</pre></div></section>
+   <section data-panel="auth" class="hidden space-y-5"><div><h1 class="text-2xl font-bold">Auth & access</h1><p class="muted text-sm mt-2">Account-wide Auth administration requires a separate server-side, per-project Auth Admin integration.</p></div><div class="panel p-6"><div class="flex gap-4"><div class="w-10 h-10 rounded-xl bg-amber-400/10 text-amber-300 flex items-center justify-center shrink-0"><i data-lucide="shield-alert" class="w-5 h-5"></i></div><div><h2 class="font-bold">No fake admin controls</h2><p class="muted text-sm mt-2 leading-relaxed">This build intentionally does not call <code class="mono">supabase.auth.admin</code> from the browser. Those methods require a service-role secret and exposing it would give every visitor full administrative access. The Management API token is also never sent to the browser. User invites, role changes, and account deletion are not enabled in this initial release.</p><p class="muted text-sm mt-3">Next secure extension: create a server-side Auth Admin endpoint with an explicit per-project service key stored as an Edge Function secret, plus a narrower allowlist and audited actions.</p></div></div></div><div class="panel p-5"><h3 class="font-bold">Current control-plane identity</h3><p id="authIdentity" class="muted text-sm mt-2">Loading identity…</p><p class="text-xs text-zinc-500 mt-3">Backend checks the authenticated email against CONTROL_ADMIN_EMAILS on every request.</p></div></section>
+   <section data-panel="activity" class="hidden space-y-5"><div class="flex items-end justify-between gap-3"><div><h1 class="text-2xl font-bold">Activity log</h1><p class="muted text-sm mt-2">Session activity only; durable server-side audit storage is not configured in this release.</p></div><button id="clearActivity" class="btn">Clear session log</button></div><div class="panel overflow-auto"><table class="w-full"><thead><tr><th>Time</th><th>Level</th><th>Project</th><th>Event</th></tr></thead><tbody id="activityRows"><tr><td colspan="4" class="muted">No activity yet.</td></tr></tbody></table></div></section>
+   <section data-panel="settings" class="hidden space-y-5"><div><h1 class="text-2xl font-bold">Settings & deployment</h1><p class="muted text-sm mt-2">Connect this UI to a dedicated Supabase control project.</p></div><div class="panel p-5"><h2 class="font-bold">Browser-safe connection</h2><p class="muted text-sm mt-2">The control project URL and publishable/anon key are public client configuration. Never use a service-role or secret key.</p><div class="grid md:grid-cols-2 gap-3 mt-4"><label class="text-xs muted">Control project URL<input id="settingsUrl" class="field mt-1" placeholder="https://…supabase.co"></label><label class="text-xs muted">Publishable / anon key<input id="settingsKey" class="field mt-1" placeholder="sb_publishable_…"></label></div><button id="saveSettings" class="btn primary mt-3">Save in this browser session</button></div><div class="panel p-5"><h2 class="font-bold">Backend deployment checklist</h2><ol class="list-decimal pl-5 space-y-2 text-sm muted mt-3"><li>Create a dedicated control Supabase project; do not reuse your production app project.</li><li>Add secrets <code class="mono">SUPABASE_ACCESS_TOKEN</code>, <code class="mono">CONTROL_ADMIN_EMAILS</code>, <code class="mono">CONTROLLED_PROJECT_REFS</code>, and <code class="mono">DASHBOARD_ORIGIN</code> in Edge Function secrets.</li><li>Deploy <code class="mono">supabase/functions/control-centre/index.ts</code> with Supabase CLI.</li><li>Enable GitHub Pages for <code class="mono">main</code> / root.</li><li>Test using a disposable project ref before allowing production access.</li></ol><a class="inline-block text-indigo-300 text-sm mt-4 underline" href="https://github.com/mayuu-p/Tester-2" target="_blank" rel="noreferrer">Open repository README ↗</a></div></section>
+  </div>
+ </main>
+</div>
+<script type="module">
+const $ = id => document.getElementById(id);
+const state = { client:null, session:null, user:null, edgeUrl:null, projects:[], selectedRef:"", schema:[], activeTable:null, activity:[], settings:{url:"",key:""} };
+const safe = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const escIdent = value => '"' + String(value).replace(/"/g,'""') + '"';
+function alertUser(message){$("alertText").textContent=message;$("alert").classList.remove("hidden");}
+$("alertClose").onclick=()=>$("alert").classList.add("hidden");
+function log(level,event,project=state.selectedRef||"—"){state.activity.unshift({time:new Date().toLocaleString(),level,project,event});state.activity=state.activity.slice(0,250);renderActivity();}
+function renderActivity(){const body=$("activityRows");body.innerHTML=state.activity.length?state.activity.map(x=>'<tr><td class="mono">'+safe(x.time)+'</td><td>'+safe(x.level)+'</td><td class="mono">'+safe(x.project)+'</td><td>'+safe(x.event)+'</td></tr>').join(''):'<tr><td colspan="4" class="muted">No activity yet.</td></tr>';}
+function setView(view){document.querySelectorAll("[data-panel]").forEach(p=>p.classList.toggle("hidden",p.dataset.panel!==view));document.querySelectorAll(".navbtn").forEach(b=>b.classList.toggle("nav-active",b.dataset.view===view));$("crumb").textContent=view.toUpperCase();if(view==="projects")renderProjects();if(view==="auth")$("authIdentity").textContent=state.user?.email||"No signed-in identity";lucide.createIcons();}
+document.querySelectorAll(".navbtn").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)));
+function loadSettings(){try{const saved=JSON.parse(sessionStorage.getItem("control-centre-settings")||"{}");state.settings=saved;$("controlUrl").value=saved.url||"";$("controlKey").value=saved.key||"";$("settingsUrl").value=saved.url||"";$("settingsKey").value=saved.key||"";}catch{}}
+function saveSettings(){const url=($("settingsUrl").value||$("controlUrl").value).trim().replace(/\/$/,"");const key=($("settingsKey").value||$("controlKey").value).trim();if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)||!key){alertUser("Enter a valid Supabase project URL and publishable/anon key.");return false;}state.settings={url,key};sessionStorage.setItem("control-centre-settings",JSON.stringify(state.settings));return true;}
+$("saveSettings").onclick=()=>{if(saveSettings())alertUser("Saved for this browser session. Sign in again to connect.");};
+$("signinForm").addEventListener("submit",async e=>{e.preventDefault();if(!saveSettings())return;const button=e.submitter;button.disabled=true;button.textContent="Signing in…";try{state.client=window.supabase.createClient(state.settings.url,state.settings.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});const {data,error}=await state.client.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});if(error)throw error;state.session=data.session;state.user=data.user;state.edgeUrl=state.settings.url+"/functions/v1/control-centre";$("signin").classList.add("hidden");$("app").classList.remove("hidden");$("main").style.marginLeft=innerWidth<=800?"62px":"256px";$("projectHeader").textContent=state.settings.url;log("INFO","Authenticated to control project");await loadProjects();setView("overview");}catch(err){alertUser(err.message||"Sign-in failed.");}finally{button.disabled=false;button.innerHTML='Sign in securely <span aria-hidden="true">→</span>';lucide.createIcons();}});
+$("signoutBtn").onclick=async()=>{try{await state.client?.auth.signOut();}catch{}state.client=null;state.session=null;state.user=null;state.projects=[];state.selectedRef="";$("app").classList.add("hidden");$("signin").classList.remove("hidden");log("INFO","Signed out");};
+async function api(action,extra={}){if(!state.client)throw new Error("Sign in to the dedicated control project first.");const {data:{session},error:sessionError}=await state.client.auth.getSession();if(sessionError||!session?.access_token)throw new Error("Session expired. Sign in again.");const response=await fetch(state.edgeUrl,{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+session.access_token,"apikey":state.settings.key},body:JSON.stringify({action,...extra})});const body=await response.json().catch(()=>({error:"Invalid server response"}));if(!response.ok)throw new Error(body.error||"Backend request failed ("+response.status+")");return body;}
+async function loadProjects(){try{$("metricConnection").textContent="Checking…";const data=await api("projects");state.projects=data.projects||[];$("metricProjects").textContent=state.projects.length;$("metricConnection").textContent="Connected";$("metricConnection").className="text-xl font-bold mt-3 text-emerald-300";fillProjectSelects();renderProjects();renderOverviewProjects();log("SUCCESS","Loaded allowlisted project inventory");}catch(err){$("metricConnection").textContent="Error";$("metricConnection").className="text-xl font-bold mt-3 text-red-300";log("ERROR","Project inventory failed: "+err.message);alertUser(err.message);}}
+$("loadProjects").onclick=loadProjects;$("projectRefresh").onclick=loadProjects;$("refreshBtn").onclick=()=>loadProjects();
+function fillProjectSelects(){const options='<option value="">Select an allowed project</option>'+state.projects.map(p=>'<option value="'+safe(p.id)+'">'+safe(p.name)+' · '+safe(p.id)+'</option>').join("");["projectSelect","sqlProject"].forEach(id=>$(id).innerHTML=options);if(state.selectedRef){$("projectSelect").value=state.selectedRef;$("sqlProject").value=state.selectedRef;}}
+function chooseProject(ref){state.selectedRef=ref;const p=state.projects.find(x=>x.id===ref);$("projectHeader").textContent=p?p.name+" · "+p.id:ref||"No project selected";$("metricSelected").textContent=p?.name||"None";$("projectSelect").value=ref;$("sqlProject").value=ref;log("INFO","Selected project "+(p?.name||ref),ref);}
+$("projectSelect").onchange=e=>chooseProject(e.target.value);$("sqlProject").onchange=e=>chooseProject(e.target.value);
+function projectCard(p){return '<button data-ref="'+safe(p.id)+'" class="project-card panel p-5 text-left hover:border-indigo-500/60 transition w-full"><div class="flex justify-between gap-3"><div class="min-w-0"><div class="font-bold truncate">'+safe(p.name)+'</div><div class="mono text-[11px] text-zinc-500 mt-2">'+safe(p.id)+'</div></div><span class="pill">'+safe(p.status)+'</span></div><div class="flex gap-4 mt-5 text-xs muted"><span>Region: '+safe(p.region)+'</span><span>Created: '+safe(p.created_at?String(p.created_at).slice(0,10):"—")+'</span></div><div class="text-indigo-300 text-xs mt-4">Select project →</div></button>';}
+function wireProjectCards(root){root.querySelectorAll("[data-ref]").forEach(el=>el.onclick=()=>{chooseProject(el.dataset.ref);setView("explorer");discoverSchema();});}
+function renderProjects(){const filter=($("projectFilter")?.value||"").toLowerCase();const list=state.projects.filter(p=>(p.name+" "+p.id).toLowerCase().includes(filter));$("projectList").innerHTML=list.length?list.map(projectCard).join(""):'<div class="panel p-5 muted text-sm">No allowlisted projects match. Configure CONTROLLED_PROJECT_REFS on the server.</div>';wireProjectCards($("projectList"));}
+$("projectFilter").oninput=renderProjects;
+function renderOverviewProjects(){$("overviewProjects").innerHTML=state.projects.length?state.projects.map(p=>'<button data-ref="'+safe(p.id)+'" class="w-full flex items-center justify-between gap-3 p-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-left"><span class="min-w-0"><span class="block text-sm font-semibold truncate">'+safe(p.name)+'</span><span class="block text-xs muted mono mt-1">'+safe(p.id)+'</span></span><span class="pill">'+safe(p.status)+'</span></button>').join(""):'<p class="muted text-sm">No allowed projects returned. Check server allowlist and Management API permissions.</p>';wireProjectCards($("overviewProjects"));}
+async function runQuery(sql,confirmWrite=false){if(!state.selectedRef)throw new Error("Select a project first.");return await api("query",{projectRef:state.selectedRef,sql,confirmWrite});}
+async function discoverSchema(){if(!$("projectSelect").value){alertUser("Select an allowed project first.");return;}chooseProject($("projectSelect").value);$("tableList").innerHTML='<p class="muted text-sm">Loading metadata…</p>';try{const sql="SELECT table_schema, table_name, table_type FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema','auth','storage','vault','extensions','realtime') ORDER BY table_schema,table_name";const data=await runQuery(sql);const rows=Array.isArray(data.result)?data.result:(Array.isArray(data.result?.data)?data.result.data:[]);state.schema=rows;$("metricTables").textContent=rows.length;$("tableList").innerHTML=rows.length?rows.map(t=>'<button data-schema="'+safe(t.table_schema)+'" data-table="'+safe(t.table_name)+'" class="schema-item w-full text-left rounded-lg p-2 hover:bg-zinc-800"><span class="block text-xs text-zinc-200">'+safe(t.table_name)+'</span><span class="block text-[10px] muted">'+safe(t.table_schema)+' · '+safe(t.table_type)+'</span></button>').join(""):'<p class="muted text-sm">No tables found, or query response was empty.</p>';wireSchemaItems();log("SUCCESS","Discovered "+rows.length+" tables/views");}catch(err){$("tableList").innerHTML='<p class="text-red-300 text-sm">'+safe(err.message)+'</p>';log("ERROR","Schema discovery failed: "+err.message);alertUser(err.message);}}
+$("discoverSchema").onclick=discoverSchema;
+function wireSchemaItems(){document.querySelectorAll(".schema-item").forEach(el=>el.onclick=()=>selectTable(el.dataset.schema,el.dataset.table));}
+$("tableFilter").oninput=()=>{const q=$("tableFilter").value.toLowerCase();document.querySelectorAll(".schema-item").forEach(el=>el.classList.toggle("hidden",!el.textContent.toLowerCase().includes(q)));};
+async function selectTable(schema,table){state.activeTable={schema,table};$("tableTitle").textContent=schema+"."+table;$("tableSubtitle").textContent="Loading column metadata…";$("columnInfo").innerHTML="";$("dataHead").innerHTML="";$("dataBody").innerHTML="";try{const sql="SELECT ordinal_position,column_name,data_type,is_nullable,column_default FROM information_schema.columns WHERE table_schema = "+quoteLiteral(schema)+" AND table_name = "+quoteLiteral(table)+" ORDER BY ordinal_position";const result=await runQuery(sql);const rows=Array.isArray(result.result)?result.result:[];$("tableSubtitle").textContent=rows.length+" columns · read-only preview";$("columnInfo").innerHTML=rows.length?'<table class="w-full"><thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Default</th></tr></thead><tbody>'+rows.map(c=>'<tr><td class="mono">'+safe(c.column_name)+'</td><td>'+safe(c.data_type)+'</td><td>'+safe(c.is_nullable)+'</td><td class="mono">'+safe(c.column_default||"—")+'</td></tr>').join("")+'</tbody></table>':'<p class="muted text-xs">No columns returned.</p>';await loadRows();}catch(err){alertUser(err.message);log("ERROR","Table metadata failed: "+err.message);}}
+function quoteLiteral(value){return "'"+String(value).replace(/'/g,"''")+"'";}
+$("loadRows").onclick=loadRows;
+async function loadRows(){if(!state.activeTable)return alertUser("Select a table first.");const {schema,table}=state.activeTable;try{const sql="SELECT * FROM "+escIdent(schema)+"."+escIdent(table)+" LIMIT 50";const result=await runQuery(sql);const rows=Array.isArray(result.result)?result.result:[];if(!rows.length){$("dataHead").innerHTML="";$("dataBody").innerHTML='<tr><td class="muted">No rows returned (or the table is empty).</td></tr>';return;}const cols=Object.keys(rows[0]);$("dataHead").innerHTML="<tr>"+cols.map(c=>"<th>"+safe(c)+"</th>").join("")+"</tr>";$("dataBody").innerHTML=rows.map(row=>"<tr>"+cols.map(c=>'<td class="mono">'+safe(typeof row[c]==="object"&&row[c]!==null?JSON.stringify(row[c]):row[c]===null?"NULL":row[c])+"</td>").join("")+"</tr>").join("");log("SUCCESS","Read "+rows.length+" preview rows from "+schema+"."+table);}catch(err){alertUser(err.message);log("ERROR","Row preview failed: "+err.message);}}
+$("exampleSelect").onclick=()=>{$("sqlInput").value="SELECT current_database() AS database_name, current_user AS database_role;";$("confirmWrite").checked=false;$("writeWarning").classList.add("hidden");};
+$("sqlInput").addEventListener("input",()=>{const sql=$("sqlInput").value;$("writeWarning").classList.toggle("hidden",!(/\b(INSERT|UPDATE|DELETE|TRUNCATE|DROP|ALTER|CREATE|GRANT|REVOKE|COMMENT|VACUUM|REINDEX|REFRESH|CALL|DO|COPY)\b/i.test(sql)));$("confirmWrite").checked=false;});
+$("runSql").onclick=async()=>{const sql=$("sqlInput").value.trim();if(!sql)return alertUser("Enter a SQL statement.");if(!state.selectedRef){const ref=$("sqlProject").value;if(ref)chooseProject(ref);else return alertUser("Select a target project.");}const write=/\b(INSERT|UPDATE|DELETE|TRUNCATE|DROP|ALTER|CREATE|GRANT|REVOKE|COMMENT|VACUUM|REINDEX|REFRESH|CALL|DO|COPY)\b/i.test(sql);if(write&&!$("confirmWrite").checked){$("writeWarning").classList.remove("hidden");return alertUser("Tick the destructive-change confirmation after reviewing the SQL.");}const btn=$("runSql");btn.disabled=true;btn.textContent="Executing…";$("queryOutput").textContent="Executing request on server…";const start=performance.now();try{const result=await runQuery(sql,write);$("queryOutput").textContent=JSON.stringify(result.result,null,2);$("queryDuration").textContent=Math.round(performance.now()-start)+" ms · "+new Date().toLocaleTimeString();log("SUCCESS",(write?"Write/DDL":"Read")+" SQL executed ("+sql.slice(0,90)+")");$("confirmWrite").checked=false;}catch(err){$("queryOutput").textContent=err.message;$("queryDuration").textContent="Failed";log("ERROR","SQL failed: "+err.message);alertUser(err.message);}finally{btn.disabled=false;btn.textContent="Execute SQL";}};
+$("clearActivity").onclick=()=>{state.activity=[];renderActivity();};
+window.addEventListener("resize",()=>{if($("app").classList.contains("hidden"))return;$("main").style.marginLeft=innerWidth<=800?"62px":"256px";});
+loadSettings();lucide.createIcons();
+</script>
 </body>
 </html>
