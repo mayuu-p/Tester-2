@@ -46,9 +46,8 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const managementToken = Deno.env.get("SUPABASE_ACCESS_TOKEN");
     const adminEmails = (Deno.env.get("CONTROL_ADMIN_EMAILS") ?? "").split(",").map(v => v.trim().toLowerCase()).filter(Boolean);
-    const allowedRefs = (Deno.env.get("CONTROLLED_PROJECT_REFS") ?? "").split(",").map(v => v.trim()).filter(Boolean);
-    if (!supabaseUrl || !anonKey || !managementToken || adminEmails.length === 0 || allowedRefs.length === 0) {
-      return reply({ error: "Backend is not configured. Set SUPABASE_ACCESS_TOKEN, CONTROL_ADMIN_EMAILS, CONTROLLED_PROJECT_REFS, and DASHBOARD_ORIGIN as Edge Function secrets." }, 503);
+    if (!supabaseUrl || !anonKey || !managementToken || adminEmails.length === 0) {
+      return reply({ error: "Backend is not configured. Set SUPABASE_ACCESS_TOKEN, CONTROL_ADMIN_EMAILS, and DASHBOARD_ORIGIN as Edge Function secrets." }, 503);
     }
 
     const authClient = createClient(supabaseUrl, anonKey, {
@@ -83,8 +82,7 @@ Deno.serve(async (req) => {
 
     if (action === "projects") {
       const projects = await managementFetch("/projects") as Array<Record<string, unknown>>;
-      const visible = projects.filter(p => allowedRefs.includes(String(p.id ?? p.ref ?? "")));
-      return reply({ projects: visible.map(p => ({
+      return reply({ projects: projects.map(p => ({
         id: String(p.id ?? p.ref ?? ""),
         name: String(p.name ?? "Supabase project"),
         region: String(p.region ?? "—"),
@@ -94,7 +92,10 @@ Deno.serve(async (req) => {
     }
 
     const projectRef = String(payload?.projectRef ?? "");
-    if (!allowedRefs.includes(projectRef)) return reply({ error: "Project is not in CONTROLLED_PROJECT_REFS allowlist." }, 403);
+    if (!/^[a-z0-9]{15,30}$/i.test(projectRef)) return reply({ error: "Invalid project reference." }, 400);
+    const accessibleProjects = await managementFetch("/projects") as Array<Record<string, unknown>>;
+    const projectExists = accessibleProjects.some(p => String(p.id ?? p.ref ?? "") === projectRef);
+    if (!projectExists) return reply({ error: "This project is not accessible to the configured Supabase Management API token." }, 403);
 
     if (action === "project") {
       const project = await managementFetch(`/projects/${encodeURIComponent(projectRef)}`);
