@@ -30,7 +30,7 @@ In the control project's dashboard, open **Edge Functions → Secrets** and add:
 
 - `SUPABASE_ACCESS_TOKEN`: a Supabase Personal Access Token that can access the projects you intend to administer. Never put it in GitHub or HTML.
 - `CONTROL_ADMIN_EMAILS`: comma-separated exact email addresses allowed to use this control plane.
-- `CONTROLLED_PROJECT_REFS`: comma-separated project refs, for example `projectref1,projectref2`. Start with a test project; add production refs only after testing.
+- `CONTROLLED_PROJECT_REFS`: No project-ref list is required. The dashboard discovers all projects visible to this token. For least privilege, use a dedicated Supabase account/token that can access only the projects you intend to manage; test with a disposable project first.
 - `DASHBOARD_ORIGIN`: exact deployed dashboard origin, e.g. `https://mayuu-p.github.io` (or the exact project Pages URL if using a project-specific origin).
 
 The platform provides `SUPABASE_URL` and `SUPABASE_ANON_KEY` to the Edge Function. Do not create browser-accessible secrets.
@@ -59,7 +59,7 @@ In GitHub, open **Settings → Pages**, choose the `main` branch and `/(root)`, 
 
 ### 6. Verify safely
 
-1. Add only a disposable/test project ref to `CONTROLLED_PROJECT_REFS`.
+1. Use a Management API token/account limited to a disposable/test project first, if possible.
 2. Sign in using an email listed in `CONTROL_ADMIN_EMAILS`.
 3. Refresh projects and inspect the schema.
 4. Run `SELECT current_database(), current_user;` first.
