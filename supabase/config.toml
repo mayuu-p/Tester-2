@@ -1,0 +1,2 @@
+[functions.control-centre]
+verify_jwt = true
