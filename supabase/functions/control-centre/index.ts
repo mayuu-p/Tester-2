@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data: userData, error: userError } = await authClient.auth.getUser();
+    const { data: userData, error: userError } = await authClient.auth.getUser(authHeader.slice(7));
     if (userError || !userData.user?.email) return reply({ error: "Invalid or expired session." }, 401);
     if (!adminEmails.includes(userData.user.email.toLowerCase())) return reply({ error: "Your account is not authorized for the Control Centre." }, 403);
 
