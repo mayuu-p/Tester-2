@@ -15,7 +15,7 @@ function reply(body: unknown, status = 200) {
 }
 
 function isWriteQuery(sql: string) {
-  return /\b(INSERT|UPDATE|DELETE|TRUNCATE|DROP|ALTER|CREATE|GRANT|REVOKE|COMMENT|VACUUM|REINDEX|REFRESH|CALL|DO|COPY)\b/i.test(sql);
+  return /\b(INSERT|UPDATE|DELETE|TRUNCATE|DROP|ALTER|CREATE|GRANT|REVOKE|COMMENT|VACUUM|REINDEX|REFRESH|CALL|DO|COPY|SET|RESET)\b/i.test(sql) || /\bSELECT\b[\s\S]*\bINTO\b/i.test(sql);
 }
 
 function validateSql(sql: unknown) {
@@ -24,7 +24,7 @@ function validateSql(sql: unknown) {
   // This endpoint executes one statement at a time. Strip trailing semicolons before checking.
   const normalized = sql.trim().replace(/;+\s*$/, "");
   if (normalized.includes(";")) throw new Error("Run one SQL statement at a time.");
-  if (/\b(DROP\s+DATABASE|ALTER\s+ROLE|CREATE\s+ROLE|GRANT\s+ALL\s+ON\s+ALL|pg_read_file|pg_write_file|lo_import|lo_export)\b/i.test(normalized)) {
+  if (/\b(DROP\s+DATABASE|ALTER\s+ROLE|CREATE\s+ROLE|ALTER\s+SYSTEM|CREATE\s+EXTENSION|SET\s+ROLE|RESET\s+ROLE|GRANT\s+ALL\s+ON\s+ALL|pg_read_file|pg_write_file|pg_terminate_backend|pg_cancel_backend|lo_import|lo_export|COPY[\s\S]*\bPROGRAM\b)/i.test(normalized)) {
     throw new Error("This high-risk server/role operation is blocked from the dashboard.");
   }
   return normalized;
